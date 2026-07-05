@@ -312,6 +312,10 @@ tbody tr:hover td { filter: brightness(0.97); }
     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
     <span>Bérlők</span>
   </button>
+  <button class="tab" onclick="showTab('arazas',this)">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <span>Árazás</span>
+  </button>
   <button class="tab" onclick="showTab('jutalek',this)">
     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
     <span>Jutalékok</span>
@@ -530,6 +534,19 @@ tbody tr:hover td { filter: brightness(0.97); }
     <input type="date" id="s-ig" onchange="renderSzamla()" />
   </div>
   <div id="szamla-tartalom"></div>
+</div>
+
+<!-- ÁRAZÁS -->
+<div id="tab-arazas" class="page">
+  <div class="section-header">
+    <div class="section-title">Tömeges árazás</div>
+    <button class="btn btn-primary" onclick="saveArazas()">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+      Mentés
+    </button>
+  </div>
+  <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">Kategóriánként töltsd ki az árakat. A "Kitölt" gombbal az egész kategóriát ugyanazzal az árral töltheted fel.</div>
+  <div id="arazas-container"></div>
 </div>
 
 <!-- BÉRLŐK -->
@@ -854,6 +871,7 @@ function showTab(t,el){
   if(t==='naplo')renderNaplo();
   if(t==='szamla')renderSzamla();
   if(t==='berlok')renderBerlok();
+  if(t==='arazas')renderArazas();
   if(t==='jutalek')renderJutalek();
 }
 
@@ -1409,8 +1427,105 @@ function renderSzamla(){
   </div>`;
 }
 
+function renderArazas(){
+  const KAT_ORDER = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA','ACIDIC BONDING CONCENTRATE','ACIDIC BONDING CONCENTRATE CURLS','ACIDIC COLOR GLOSS','ACIDIC GROW FULL SYSTEM','ALL SOFT','ALL SOFT MEGA CURLS','AMINO MINT','BLOND','CERAFILL','EXTREME','FRIZZ DISMISS','HIGH BRIGHT','VOLUME INJECTION','ONE UNITED','SCALP RELIEF','AMINEXIL','Refill','REDKEN BREWS','STYLING'];
+  const byKat = {};
+  products.forEach(p=>{ if(!byKat[p.kat]) byKat[p.kat]=[]; byKat[p.kat].push(p); });
+  const katok = KAT_ORDER.filter(k=>byKat[k]).concat(Object.keys(byKat).filter(k=>!KAT_ORDER.includes(k)));
+  const csakBerloi = new Set(CSAK_BERLOI_KAT);
+
+  document.getElementById('arazas-container').innerHTML = katok.map(kat=>{
+    const termekek = byKat[kat];
+    const vanVendeg = !csakBerloi.has(kat);
+    const katColor = katClass(kat);
+    return `<div class="kat-group ${katColor}" style="margin-bottom:10px;">
+      <div class="kat-group-header" onclick="toggleKat(this)">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="kat-group-arrow">▶</span>
+          <span>${kat}</span>
+        </div>
+        <span class="kat-group-count">${termekek.length} db</span>
+      </div>
+      <div class="kat-group-body">
+        <div style="padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+          <div style="font-size:12px;font-weight:500;color:var(--text2);">Kitölt mindent:</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <input type="number" placeholder="Besz. ár" style="width:100px;padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid var(--border);font-family:DM Sans,sans-serif;" id="fill-besar-${kat.replace(/\s/g,'-')}" />
+            <input type="number" placeholder="Br. fodrász ár" style="width:120px;padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid var(--border);font-family:DM Sans,sans-serif;" id="fill-fogyasztoiar-${kat.replace(/\s/g,'-')}" />
+            ${vanVendeg ? `<input type="number" placeholder="Elad. ár" style="width:100px;padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid var(--border);font-family:DM Sans,sans-serif;" id="fill-elar-${kat.replace(/\s/g,'-')}" />` : ''}
+            <button class="btn btn-sm btn-primary" onclick="fillKat('${kat}')">Kitölt</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+            <thead><tr style="background:var(--surface2);">
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);width:35%;">Termék neve</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);width:10%;">Készlet</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);width:15%;">Besz. ár</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);width:18%;">Br. fodrász ár</th>
+              ${vanVendeg ? '<th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);width:15%;">Elad. ár</th>' : ''}
+            </tr></thead>
+            <tbody>
+              ${termekek.map(p=>`<tr>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);font-weight:500;">${p.nev}</td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);">
+                  <input type="number" min="0" value="${p.keszlet}" data-id="${p.id}" data-field="keszlet" onchange="updateArazasField(this)" style="width:60px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid var(--border);font-family:DM Sans,sans-serif;" />
+                </td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);">
+                  <input type="number" min="0" value="${p.besar||''}" placeholder="0" data-id="${p.id}" data-field="besar" onchange="updateArazasField(this)" style="width:90px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid var(--border);font-family:DM Sans,sans-serif;" />
+                </td>
+                <td style="padding:7px 12px;border-bottom:1px solid var(--border);">
+                  <input type="number" min="0" value="${p.fogyasztoiar||''}" placeholder="0" data-id="${p.id}" data-field="fogyasztoiar" onchange="updateArazasField(this)" style="width:110px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid var(--border);font-family:DM Sans,sans-serif;" />
+                </td>
+                ${vanVendeg ? `<td style="padding:7px 12px;border-bottom:1px solid var(--border);">
+                  <input type="number" min="0" value="${p.elar||''}" placeholder="0" data-id="${p.id}" data-field="elar" onchange="updateArazasField(this)" style="width:90px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid var(--border);font-family:DM Sans,sans-serif;" />
+                </td>` : ''}
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateArazasField(input){
+  const id = Number(input.dataset.id);
+  const field = input.dataset.field;
+  const val = parseInt(input.value)||0;
+  const p = products.find(x=>x.id===id);
+  if(p) p[field] = val;
+}
+
+function fillKat(kat){
+  const katId = kat.replace(/\s/g,'-');
+  const besar = parseInt(document.getElementById('fill-besar-'+katId)?.value)||0;
+  const fogyasztoiar = parseInt(document.getElementById('fill-fogyasztoiar-'+katId)?.value)||0;
+  const elarEl = document.getElementById('fill-elar-'+katId);
+  const elar = elarEl ? parseInt(elarEl.value)||0 : 0;
+  
+  // Frissítjük az inputokat a táblázatban
+  document.querySelectorAll(`input[data-field="besar"]`).forEach(inp=>{
+    const p = products.find(x=>x.id===Number(inp.dataset.id));
+    if(p && p.kat===kat && besar>0){ inp.value=besar; p.besar=besar; }
+  });
+  document.querySelectorAll(`input[data-field="fogyasztoiar"]`).forEach(inp=>{
+    const p = products.find(x=>x.id===Number(inp.dataset.id));
+    if(p && p.kat===kat && fogyasztoiar>0){ inp.value=fogyasztoiar; p.fogyasztoiar=fogyasztoiar; }
+  });
+  if(elar>0) document.querySelectorAll(`input[data-field="elar"]`).forEach(inp=>{
+    const p = products.find(x=>x.id===Number(inp.dataset.id));
+    if(p && p.kat===kat){ inp.value=elar; p.elar=elar; }
+  });
+}
+
+function saveArazas(){
+  showSyncStatus('Mentés...', false);
+  saveToSheet();
+  setTimeout(()=>{ renderKeszlet(); }, 700);
+}
+
 function renderBerlok(){
-  const div=document.getElementById('berlo-lista');
   if(!berlok.length){div.innerHTML='<div class="empty-state" style="padding:40px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">Még nincs bérlő rögzítve</div>';return;}
   div.innerHTML=berlok.map(b=>{
     const list=eladas.filter(e=>e.berloId===b.id);
