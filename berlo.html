@@ -521,13 +521,12 @@ function bUpdateKatLista(){
 function bUpdateTermekek(){
   const kat = document.getElementById('b-kat').value;
   const filtered = products.filter(p=>{
-    if(p.keszlet<=0) return false;
     if(kat && p.kat!==kat) return false;
     if(currentTipus==='vendeg' && CSAK_BERLOI_KAT.includes(p.kat)) return false;
     return true;
   });
   document.getElementById('b-termek').innerHTML = '<option value="">-- Válassz terméket --</option>'+
-    filtered.map(p=>`<option value="${p.id}">${p.nev} (${p.keszlet} db)</option>`).join('');
+    filtered.map(p=>`<option value="${p.id}">${p.nev}${p.keszlet>0?' ('+p.keszlet+' db)':' (elfogyott)'}</option>`).join('');
   document.getElementById('b-ar').value=0;
   document.getElementById('b-ar-hint').textContent='';
   bUpdateCalc();
