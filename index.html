@@ -1428,6 +1428,9 @@ function renderSzamla(){
 }
 
 function renderArazas(){
+  const container = document.getElementById('arazas-container');
+  if(!container){ console.error('arazas-container not found'); return; }
+  if(!products.length){ container.innerHTML='<div class="empty-state">Még nincsenek termékek betöltve. Kattints a Frissítés gombra!</div>'; return; }
   const KAT_ORDER = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA','ACIDIC BONDING CONCENTRATE','ACIDIC BONDING CONCENTRATE CURLS','ACIDIC COLOR GLOSS','ACIDIC GROW FULL SYSTEM','ALL SOFT','ALL SOFT MEGA CURLS','AMINO MINT','BLOND','CERAFILL','EXTREME','FRIZZ DISMISS','HIGH BRIGHT','VOLUME INJECTION','ONE UNITED','SCALP RELIEF','AMINEXIL','Refill','REDKEN BREWS','STYLING'];
   const byKat = {};
   products.forEach(p=>{ if(!byKat[p.kat]) byKat[p.kat]=[]; byKat[p.kat].push(p); });
