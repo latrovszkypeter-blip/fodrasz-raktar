@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fodrász Raktár</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f3ef;
+  --surface: #ffffff;
+  --surface2: #f0ede8;
+  --border: #e2ddd6;
+  --border2: #d0c9bf;
+  --text: #1a1814;
+  --text2: #6b6560;
+  --text3: #a09a93;
+  --accent: #2d5a3d;
+  --accent-light: #e8f2ec;
+  --accent2: #8b4513;
+  --accent2-light: #fdf0e8;
+  --purple: #4a3f7a;
+  --purple-light: #eeeaf8;
+  --warn: #92400e;
+  --warn-light: #fef3c7;
+  --danger: #991b1b;
+  --danger-light: #fee2e2;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* LAYOUT */
+.shell { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+.top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-icon { width: 40px; height: 40px; background: var(--accent); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.logo-icon svg { color: white; }
+.logo-name { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+.logo-sub { font-size: 12px; color: var(--text3); font-weight: 400; margin-top: 1px; }
+
+/* TABS */
+.tabs { display: flex; gap: 2px; background: var(--surface2); border-radius: var(--radius); padding: 4px; margin-bottom: 28px; border: 1px solid var(--border); }
+.tab { flex: 1; padding: 9px 8px; font-size: 13px; font-weight: 500; border: none; background: transparent; cursor: pointer; border-radius: 7px; color: var(--text2); transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.tab:hover { color: var(--text); background: rgba(255,255,255,0.6); }
+.tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.tab svg { width: 15px; height: 15px; flex-shrink: 0; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* STATS */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+.stat-label { font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.stat-value { font-size: 24px; font-weight: 600; color: var(--text); letter-spacing: -0.5px; }
+.stat-value.green { color: var(--accent); }
+.stat-value.warn { color: var(--warn); }
+
+/* TOOLBAR */
+.toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.toolbar input, .toolbar select { padding: 9px 13px; font-size: 13px; font-family: 'DM Sans', sans-serif; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); outline: none; transition: border 0.15s; }
+.toolbar input { flex: 1; min-width: 160px; }
+.toolbar input:focus, .toolbar select:focus { border-color: var(--accent); }
+.toolbar select { cursor: pointer; }
+
+/* BUTTONS */
+.btn { padding: 9px 16px; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: all 0.15s; white-space: nowrap; }
+.btn:hover { background: var(--surface2); border-color: var(--border2); }
+.btn svg { width: 15px; height: 15px; }
+.btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+.btn-primary:hover { background: #245030; border-color: #245030; }
+.btn-danger { color: var(--danger); border-color: #fca5a5; }
+.btn-danger:hover { background: var(--danger-light); }
+.btn-sm { padding: 6px 10px; font-size: 12px; }
+
+/* TABLE */
+.table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead { background: var(--surface2); }
+th { padding: 11px 16px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 13px 16px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { filter: brightness(0.97); }
+.td-name { font-weight: 500; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-mono { font-family: 'DM Mono', monospace; font-size: 12.5px; }
+.td-actions { display: flex; gap: 4px; }
+.profit-pos { color: var(--accent); font-weight: 600; }
+.profit-neg { color: var(--danger); font-weight: 600; }
+
+/* BADGES */
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.badge-ok { background: var(--accent-light); color: var(--accent); }
+.badge-ok::before { background: var(--accent); }
+.badge-low { background: var(--warn-light); color: var(--warn); }
+.badge-low::before { background: #f59e0b; }
+.badge-out { background: var(--danger-light); color: var(--danger); }
+.badge-out::before { background: var(--danger); }
+
+/* CARD FORM */
+.form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-row { display: flex; flex-direction: column; gap: 5px; }
+.form-row label { font-size: 12px; font-weight: 500; color: var(--text2); }
+.form-row input, .form-row select, .form-row textarea { padding: 9px 12px; font-size: 13px; font-family: 'DM Sans', sans-serif; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); outline: none; transition: border 0.15s; }
+.form-row input:focus, .form-row select:focus { border-color: var(--accent); }
+.hint { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+.calc-box { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center; }
+.calc-label { font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.calc-value { font-size: 17px; font-weight: 600; color: var(--text); }
+
+/* MODAL */
+.modal-bg { display: none; position: fixed; inset: 0; background: rgba(26,24,20,0.45); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+.modal-bg.open { display: flex; }
+.modal { background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border); padding: 24px 24px 0 24px; width: 420px; max-width: 95vw; max-height: 92vh; overflow-y: auto; box-shadow: var(--shadow-md); }
+.modal-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; padding: 16px 0 20px 0; border-top: 1px solid var(--border); position: sticky; bottom: 0; background: var(--surface); }
+.margin-preview { background: var(--accent-light); border: 1px solid #c6e0cc; border-radius: var(--radius); padding: 10px 14px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+
+/* BÉRLŐ CARDS */
+.berlo-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; box-shadow: var(--shadow); transition: box-shadow 0.15s; }
+.berlo-card:hover { box-shadow: var(--shadow-md); }
+.avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--purple-light); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: var(--purple); flex-shrink: 0; }
+.berlo-stats { display: flex; gap: 16px; font-size: 12px; margin-top: 4px; }
+.berlo-stat { color: var(--text3); }
+.berlo-stat strong { color: var(--text); font-weight: 600; }
+.berlo-stat strong.green { color: var(--accent); }
+
+/* SZÁMLÁZÁS */
+.szamla-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+.szamla-header { padding: 20px 24px; border-bottom: 1px solid var(--border); background: var(--surface2); display: flex; align-items: center; gap: 16px; }
+.szamla-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center; }
+.szamla-total-label { font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.szamla-total-value { font-size: 20px; font-weight: 700; }
+
+/* NAPLO SUMMARY */
+.naplo-sum { display: flex; justify-content: flex-end; gap: 20px; font-size: 13px; padding: 12px 16px; background: var(--surface2); border-top: 1px solid var(--border); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+
+.badge-fuggoben { background: var(--warn-light); color: var(--warn); }
+.badge-fuggoben::before { background: #f59e0b; }
+.badge-kifizetve { background: var(--accent-light); color: var(--accent); }
+.badge-kifizetve::before { background: var(--accent); }
+.badge-berletbol { background: var(--purple-light); color: var(--purple); }
+.badge-berletbol::before { background: var(--purple); }
+.type-pill { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.type-pill.berlo { background: var(--purple-light); color: var(--purple); }
+.type-pill.vendeg { background: var(--accent2-light); color: var(--accent2); }
+.btn.type-active { background: var(--accent); color: white; border-color: var(--accent); }
+.status-select { padding: 5px 8px; font-size: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; }
+
+/* SECTION HEADER */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.section-title { font-size: 16px; font-weight: 600; letter-spacing: -0.2px; }
+
+.kat-color-gel-oils { background-color: #FFFDE7 !important; }
+.kat-shades-eq { background-color: #FCE4EC !important; }
+.kat-shades-alk { background-color: #F3F3F3 !important; }
+.kat-oxydants { background-color: #E8F5E9 !important; }
+.kat-lighteners { background-color: #FFF3E0 !important; }
+.kat-hajapolok-szalonhasznalatra { background-color: #E8EAF6 !important; }
+.kat-acidic-bonding-concentrate { background-color: #E0F7FA !important; }
+.kat-acidic-bonding-concentrate-curls { background-color: #F9FBE7 !important; }
+.kat-acidic-color-gloss { background-color: #FCE8F3 !important; }
+.kat-acidic-grow-full-system { background-color: #E8F8F0 !important; }
+.kat-all-soft { background-color: #FFF8E1 !important; }
+.kat-all-soft-mega-curls { background-color: #EDE7F6 !important; }
+.kat-amino-mint { background-color: #E0F2F1 !important; }
+.kat-blond { background-color: #FFFDE0 !important; }
+.kat-cerafill { background-color: #FBE9E7 !important; }
+.kat-extreme { background-color: #E3F2FD !important; }
+.kat-frizz-dismiss { background-color: #F1F8E9 !important; }
+.kat-high-bright { background-color: #FFF0F5 !important; }
+.kat-volume-injection { background-color: #E8F4FD !important; }
+.kat-one-united { background-color: #F3E5F5 !important; }
+.kat-scalp-relief { background-color: #E0F4FF !important; }
+.kat-extreme-bleach-recovery { background-color: #FEF6E4 !important; }
+.kat-refill { background-color: #F0FFF0 !important; }
+.kat-redken-brews { background-color: #E8EDF5 !important; }
+.kat-styling { background-color: #FFF0E6 !important; }
+
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
+.empty-state svg { width: 32px; height: 32px; margin: 0 auto 10px; display: block; opacity: 0.3; }
+
+@media (max-width: 640px) {
+  .stats { grid-template-columns: 1fr 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  
+  /* Shell padding */
+  .shell { padding: 12px 12px 80px 12px; }
+  
+  /* Top bar */
+  .top-bar { margin-bottom: 16px; }
+  .logo-name { font-size: 16px; }
+
+  /* Tabs - bottom nav app stílus */
+  .tabs {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 0;
+    padding: 6px 4px 10px 4px;
+    margin-bottom: 0;
+    z-index: 500;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+    gap: 0;
+  }
+  .tab {
+    flex-direction: column;
+    font-size: 10px;
+    gap: 3px;
+    padding: 6px 4px;
+    border-bottom: none;
+    border-radius: 8px;
+  }
+  .tab svg { width: 20px; height: 20px; }
+  .tab span { display: block; }
+  .tab.active { background: var(--accent-light); color: var(--accent); }
+
+  /* Stats kártyák */
+  .stat-card { padding: 12px; }
+  .stat-value { font-size: 16px; }
+
+  /* Toolbar */
+  .toolbar { flex-direction: column; }
+  .toolbar input, .toolbar select { width: 100%; }
+
+  /* Táblázat helyett kártyák mobilon */
+  .mobile-hide { display: none !important; }
+  .mobile-card-list { display: block; }
+
+  /* Section header */
+  .section-header { margin-bottom: 12px; }
+  .section-title { font-size: 15px; }
+  .btn { padding: 10px 14px; font-size: 14px; }
+  .btn-sm { padding: 8px 10px; }
+
+  /* Modal teljes képernyős mobilon */
+  #addModal > div, #berloModal > div, #mozgModal > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    margin-top: auto;
+  }
+  #addModal, #berloModal, #mozgModal,
+  .modal-bg { align-items: flex-end !important; }
+  .modal { width: 100% !important; max-width: 100% !important; max-height: 85vh !important; border-radius: 16px 16px 0 0 !important; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<div class="top-bar">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75a.75.75 0 0 0-.75.75v.75M7.5 3.75h9M7.5 3.75v-.75A.75.75 0 0 1 8.25 2.25h7.5a.75.75 0 0 1 .75.75v.75m0 0h.75A2.25 2.25 0 0 1 19.5 6v14.25A2.25 2.25 0 0 1 17.25 22.5H6.75A2.25 2.25 0 0 1 4.5 20.25V6A2.25 2.25 0 0 1 6.75 3.75h.75"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-name">Fodrász Raktár</div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő</div>
+    </div>
+  </div>
+  <button class="btn" onclick="loadFromSheet()" title="Frissítés" style="padding:8px 12px;gap:6px;">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+    Frissítés
+  </button>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('keszlet',this)">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+    <span>Készlet</span>
+  </button>
+  <button class="tab" onclick="showTab('eladas',this)">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"/></svg>
+    <span>Eladás</span>
+  </button>
+  <button class="tab" onclick="showTab('naplo',this)">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
+    <span>Napló</span>
+  </button>
+  <button class="tab" onclick="showTab('szamla',this)">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185z"/></svg>
+    <span>Számlázás</span>
+  </button>
+  <button class="tab" onclick="showTab('berlok',this)">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+    <span>Bérlők</span>
+  </button>
+  <button class="tab" onclick="showTab('jutalek',this)">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <span>Jutalékok</span>
+  </button>
+</div>
+
+<!-- KÉSZLET -->
+<div id="tab-keszlet" class="page active">
+  <div class="section-header">
+    <div class="section-title">Raktárkészlet</div>
+    <button class="btn btn-primary" onclick="openAdd()">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      Új termék
+    </button>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Keresés termékre..." oninput="renderKeszlet()" />
+    <select id="filterKat" onchange="renderKeszlet()">
+      <option value="">Minden kategória</option>
+      <option>COLOR GEL OILS</option>
+      <option>SHADES EQ</option>
+      <option>SHADES ALK</option>
+      <option>OXYDANTS</option>
+      <option>LIGHTENERS</option>
+      <option>HAJÁPOLÓK SZALONHASZNÁLATRA</option>
+      <option>ACIDIC BONDING CONCENTRATE</option>
+      <option>ACIDIC BONDING CONCENTRATE CURLS</option>
+      <option>ACIDIC COLOR GLOSS</option>
+      <option>ACIDIC GROW FULL SYSTEM</option>
+      <option>ALL SOFT</option>
+      <option>ALL SOFT MEGA CURLS</option>
+      <option>AMINO MINT</option>
+      <option>BLOND</option>
+      <option>CERAFILL</option>
+      <option>EXTREME</option>
+      <option>FRIZZ DISMISS</option>
+      <option>HIGH BRIGHT</option>
+      <option>VOLUME INJECTION</option>
+      <option>ONE UNITED</option>
+      <option>SCALP RELIEF</option>
+      <option>EXTREME BLEACH RECOVERY</option>
+      <option>Refill</option>
+      <option>REDKEN BREWS</option>
+      <option>STYLING</option>
+    </select>
+    <select id="filterAllapot" onchange="renderKeszlet()">
+      <option value="">Minden állapot</option>
+      <option value="ok">Rendben</option><option value="low">Alacsony</option><option value="out">Elfogyott</option>
+    </select>
+  </div>
+  <div class="table-card mobile-hide">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:20%">Termék neve</th>
+          <th style="width:12%">Kategória</th>
+          <th style="width:7%">Készlet</th>
+          <th style="width:12%">Besz. ár</th>
+          <th style="width:12%">Br. fodrász ár</th>
+          <th style="width:10%">Vendég ár</th>
+          <th style="width:10%">Bérlői ár</th>
+          <th style="width:8%">Margin</th>
+          <th style="width:7%">Állapot</th>
+          <th style="width:5%"></th>
+        </tr></thead>
+        <tbody id="keszlet-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="keszlet-cards" class="mobile-card-list" style="display:none;"></div>
+</div>
+
+<!-- ELADÁS -->
+<div id="tab-eladas" class="page">
+  <div class="section-header"><div class="section-title">Eladás rögzítése</div></div>
+  <div class="form-card">
+    <div class="form-row" style="margin-bottom:16px;">
+      <label>Eladás típusa</label>
+      <div style="display:flex;gap:8px;">
+        <button type="button" id="typeBtnBerlo" class="btn" style="flex:1;justify-content:center;" onclick="setEladasTipus('berlo')">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="width:15px;height:15px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+          Bérlőnek eladás
+        </button>
+        <button type="button" id="typeBtnVendeg" class="btn" style="flex:1;justify-content:center;" onclick="setEladasTipus('vendeg')">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="width:15px;height:15px;flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
+          Vendégnek eladás
+        </button>
+      </div>
+      <div class="hint" id="tipus-hint" style="margin-top:6px;"></div>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-row" id="e-berlo-row"><label id="e-berlo-label">Bérlő</label>
+        <select id="e-berlo"><option value="">-- Válassz bérlőt --</option></select>
+      </div>
+      <div class="form-row"><label>Kategória</label>
+        <select id="e-kat" onchange="updateEladasTermekek()">
+          <option value="">-- Minden kategória --</option>
+          <option>COLOR GEL OILS</option>
+          <option>SHADES EQ</option>
+          <option>SHADES ALK</option>
+          <option>OXYDANTS</option>
+          <option>LIGHTENERS</option>
+          <option>HAJÁPOLÓK SZALONHASZNÁLATRA</option>
+          <option>ACIDIC BONDING CONCENTRATE</option>
+          <option>ACIDIC BONDING CONCENTRATE CURLS</option>
+          <option>ACIDIC COLOR GLOSS</option>
+          <option>ACIDIC GROW FULL SYSTEM</option>
+          <option>ALL SOFT</option>
+          <option>ALL SOFT MEGA CURLS</option>
+          <option>AMINO MINT</option>
+          <option>BLOND</option>
+          <option>CERAFILL</option>
+          <option>EXTREME</option>
+          <option>FRIZZ DISMISS</option>
+          <option>HIGH BRIGHT</option>
+          <option>VOLUME INJECTION</option>
+          <option>ONE UNITED</option>
+          <option>SCALP RELIEF</option>
+          <option>EXTREME BLEACH RECOVERY</option>
+          <option>Refill</option>
+          <option>REDKEN BREWS</option>
+          <option>STYLING</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid" style="margin-top:14px;">
+      <div class="form-row"><label>Termék</label>
+        <select id="e-termek" onchange="updateEladasArak()"><option value="">-- Válassz terméket --</option></select>
+      </div>
+      <div class="form-row">
+        <label>Eladási ár / db (Ft)</label>
+        <input type="number" id="e-ar" min="0" value="0" oninput="updateEladasCalc()" />
+        <div class="hint" id="e-ar-hint"></div>
+      </div>
+    </div>
+    <div class="form-grid" style="margin-top:14px;">
+      <div class="form-row"><label>Mennyiség (db)</label>
+        <input type="number" id="e-db" min="1" value="1" oninput="updateEladasCalc()" />
+      </div>
+      <div class="form-row"><label>Dátum</label><input type="date" id="e-datum" /></div>
+    </div>
+    <div class="form-row" style="margin-top:14px;"><label>Megjegyzés</label><input type="text" id="e-megjegyzes" placeholder="opcionális" /></div>
+    <hr class="divider">
+    <div class="calc-box" id="calc-box-berlo">
+      <div><div class="calc-label">Bevétel</div><div class="calc-value" id="calc-bevetel">0 Ft</div></div>
+      <div><div class="calc-label">Anyagköltség</div><div class="calc-value" id="calc-koltseg">0 Ft</div></div>
+      <div><div class="calc-label">Haszon</div><div class="calc-value" id="calc-haszon">0 Ft</div></div>
+    </div>
+    <div class="calc-box" id="calc-box-vendeg" style="display:none;grid-template-columns:1fr 1fr 1fr 1fr;">
+      <div><div class="calc-label">Bevétel</div><div class="calc-value" id="calc-v-bevetel">0 Ft</div></div>
+      <div><div class="calc-label">Anyagköltség</div><div class="calc-value" id="calc-v-koltseg">0 Ft</div></div>
+      <div><div class="calc-label">Bérlő jutaléka (15%)</div><div class="calc-value" id="calc-v-jutalek" style="color:var(--accent2)">0 Ft</div></div>
+      <div><div class="calc-label">Te kerested</div><div class="calc-value" id="calc-v-haszon">0 Ft</div></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:16px;justify-content:center;" onclick="rogzitEladas()">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+      Eladás rögzítése
+    </button>
+  </div>
+</div>
+
+<!-- NAPLÓ -->
+<div id="tab-naplo" class="page">
+  <div class="section-header"><div class="section-title">Értékesítési napló</div></div>
+  <div class="toolbar">
+    <select id="n-tipus" onchange="renderNaplo()">
+      <option value="">Minden típus</option>
+      <option value="berlo">Bérlőnek eladás</option>
+      <option value="vendeg">Vendégnek eladás</option>
+    </select>
+    <select id="n-berlo" onchange="renderNaplo()"><option value="">Minden bérlő</option></select>
+    <input type="date" id="n-tol" onchange="renderNaplo()" />
+    <input type="date" id="n-ig" onchange="renderNaplo()" />
+    <button class="btn" onclick="clearNaploFilter()">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      Törlés
+    </button>
+  </div>
+  <div class="table-card" id="naplo-card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:9%">Dátum</th>
+          <th style="width:8%">Típus</th>
+          <th style="width:10%">Bérlő</th>
+          <th style="width:11%">Kategória</th>
+          <th style="width:13%">Termék</th>
+          <th style="width:5%">Db</th>
+          <th style="width:7%">Elad. ár</th>
+          <th style="width:7%">Bevétel</th>
+          <th style="width:7%">Anyagk.</th>
+          <th style="width:8%">Haszon/Jut.</th>
+          <th style="width:10%">Rögzítette</th>
+          <th style="width:4%"></th>
+        </tr></thead>
+        <tbody id="naplo-tbody"></tbody>
+      </table>
+    </div>
+    <div id="naplo-sum-bar"></div>
+  </div>
+</div>
+
+<!-- SZÁMLÁZÁS -->
+<div id="tab-szamla" class="page">
+  <div class="section-header"><div class="section-title">Számlázási összesítő</div></div>
+  <div class="toolbar">
+    <select id="s-berlo" onchange="renderSzamla()"><option value="">-- Válassz bérlőt --</option></select>
+    <input type="date" id="s-tol" onchange="renderSzamla()" />
+    <input type="date" id="s-ig" onchange="renderSzamla()" />
+  </div>
+  <div id="szamla-tartalom"></div>
+</div>
+
+<!-- BÉRLŐK -->
+<div id="tab-berlok" class="page">
+  <div class="section-header">
+    <div class="section-title">Bérlők</div>
+    <button class="btn btn-primary" onclick="openBerloAdd()">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      Új bérlő
+    </button>
+  </div>
+  <div id="berlo-lista"></div>
+</div>
+
+<!-- JUTALÉKOK -->
+<div id="tab-jutalek" class="page">
+  <div class="section-header"><div class="section-title">Bérlői jutalékok (vendégeladás után, 15%)</div></div>
+  <div class="stats" id="jutalek-stats" style="grid-template-columns:repeat(3,1fr);"></div>
+  <div class="toolbar">
+    <select id="j-berlo" onchange="renderJutalek()"><option value="">Minden bérlő</option></select>
+    <select id="j-statusz" onchange="renderJutalek()">
+      <option value="">Minden státusz</option>
+      <option value="fuggoben">Függőben</option>
+      <option value="kifizetve">Kifizetve</option>
+      <option value="berletbol">Bérletiből levonva</option>
+    </select>
+  </div>
+  <div class="table-card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:11%">Dátum</th>
+          <th style="width:20%">Bérlő</th>
+          <th style="width:24%">Termék</th>
+          <th style="width:6%">Db</th>
+          <th style="width:13%">Eladás összege</th>
+          <th style="width:12%">Jutalék (10%)</th>
+          <th style="width:14%">Státusz</th>
+        </tr></thead>
+        <tbody id="jutalek-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: termék -->
+<div id="addModal" style="display:none;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(26,24,20,0.45);backdrop-filter:blur(2px);">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);padding:24px;width:420px;max-width:95vw;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-md);position:relative;">
+    <div style="font-size:16px;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="width:20px;height:20px;color:var(--accent)"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+      <span id="modalTitle">Új termék</span>
+    </div>
+    <div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;">Termék neve</label><input id="f-nev" type="text" placeholder="pl. Color Gels Oils 10NA" style="width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);" /></div>
+    <div style="margin-bottom:14px;"><label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;">Kategória</label>
+      <select id="f-kat" onchange="updateModalKat()" style="width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);"><option>COLOR GEL OILS</option><option>SHADES EQ</option><option>SHADES ALK</option><option>OXYDANTS</option><option>LIGHTENERS</option><option>HAJÁPOLÓK SZALONHASZNÁLATRA</option><option>ACIDIC BONDING CONCENTRATE</option><option>ACIDIC BONDING CONCENTRATE CURLS</option><option>ACIDIC COLOR GLOSS</option><option>ACIDIC GROW FULL SYSTEM</option><option>ALL SOFT</option><option>ALL SOFT MEGA CURLS</option><option>AMINO MINT</option><option>BLOND</option><option>CERAFILL</option><option>EXTREME</option><option>FRIZZ DISMISS</option><option>HIGH BRIGHT</option><option>VOLUME INJECTION</option><option>ONE UNITED</option><option>SCALP RELIEF</option><option>EXTREME BLEACH RECOVERY</option><option>Refill</option><option>REDKEN BREWS</option><option>STYLING</option></select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div><label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;">Készlet (db)</label><input id="f-keszlet" type="number" min="0" value="0" style="width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);" /></div>
+      <div><label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;">Minimum készlet</label><input id="f-min" type="number" min="0" value="3" style="width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);" /></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div><label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;">Beszerzési ár (Ft/db)</label><input id="f-besar" type="number" min="0" value="0" oninput="updateModalMargin()" style="width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);" /></div>
+      <div><label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;">Bruttó fodrász ár (Ft/db)</label><input id="f-fogyasztoiar" type="number" min="0" value="0" oninput="updateModalMargin()" style="width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);" /></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div id="f-elar-row"><label id="f-elar-label" style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;">Eladási ár – vendégnek (Ft/db)</label><input id="f-elar" type="number" min="0" value="0" oninput="updateModalMargin()" style="width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);" /></div>
+      <div><label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;">Bérlői ár (−10%, automatikus)</label><input id="f-berloi-ar" type="text" style="width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text2);" /></div>
+    </div>
+    <div style="background:var(--accent-light);border:1px solid #c6e0cc;border-radius:var(--radius);padding:10px 14px;font-size:13px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <span style="font-size:12px;font-weight:500;color:var(--text2);">Margin:</span><span id="modal-margin" style="font-size:13px;font-weight:600;">–</span>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button style="padding:9px 16px;font-size:13px;font-weight:500;font-family:DM Sans,sans-serif;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;" onclick="closeAdd()">Mégse</button>
+      <button style="padding:9px 16px;font-size:13px;font-weight:500;font-family:DM Sans,sans-serif;border-radius:var(--radius);border:1px solid var(--accent);background:var(--accent);color:white;cursor:pointer;" onclick="saveProduct()">Mentés</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: bérlő -->
+<div class="modal-bg" id="berloModal">
+  <div class="modal" style="width:380px;">
+    <div class="modal-title">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="width:20px;height:20px;color:var(--purple)"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+      <span id="berloModalTitle">Új bérlő</span>
+    </div>
+    <div class="form-row" style="margin-bottom:14px;"><label>Neve</label><input id="b-nev" type="text" /></div>
+    <div class="form-grid" style="margin-bottom:14px;">
+      <div class="form-row"><label>Adószám</label><input id="b-adoszam" type="text" placeholder="12345678-1-23" /></div>
+      <div class="form-row"><label>Telefon</label><input id="b-telefon" type="text" /></div>
+    </div>
+    <div class="form-row" style="margin-bottom:14px;">
+      <label>PIN kód (4 számjegy – bérlői belépéshez)</label>
+      <input id="b-pin" type="text" maxlength="4" placeholder="pl. 1234" style="letter-spacing:8px;font-size:18px;" />
+      <div class="hint">Ezt a kódot adod meg a bérlőnek a saját felületük eléréséhez</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeBerlo()">Mégse</button>
+      <button class="btn btn-primary" onclick="saveBerlo()">Mentés</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: mozgás -->
+<div class="modal-bg" id="mozgModal">
+  <div class="modal" style="width:320px;">
+    <div class="modal-title" id="mozgTitle">Készletmozgás</div>
+    <div class="form-row" style="margin-bottom:14px;"><label>Típus</label>
+      <select id="m-tipus"><option value="be">Bevételezés (+)</option><option value="ki">Kiadás (−)</option></select>
+    </div>
+    <div class="form-row"><label>Mennyiség (db)</label><input id="m-db" type="number" min="1" value="1" /></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeMozg()">Mégse</button>
+      <button class="btn btn-primary" onclick="saveMozg()">Rögzítés</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQ8_L2omnzlmzxmt3cF4tdFq_m2x-cN6KGdUXwL4Rk4k96bBjHyObS621IlNJRAjj3/exec";
+
+let products=[];
+let berlok=[];
+let eladas=[];
+let nextPid=1,nextBid=1,nextEid=1,editPid=null,editBid=null,mozgPid=null;
+let saveTimeout=null;
+let isLoading=true;
+const JUTALEK_PCT = 18;
+let currentEladasTipus = 'berlo';
+
+function calcNextIds(){
+  nextPid = products.length ? Math.max(...products.map(p=>Number(p.id)))+1 : 1;
+  nextBid = berlok.length ? Math.max(...berlok.map(b=>Number(b.id)))+1 : 1;
+  nextEid = eladas.length ? Math.max(...eladas.map(e=>Number(e.id)))+1 : 1;
+}
+
+function showSyncStatus(text, isError){
+  let el = document.getElementById('sync-status');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'sync-status';
+    el.style.cssText = 'position:fixed;bottom:18px;right:18px;padding:9px 16px;border-radius:10px;font-size:12px;font-weight:500;font-family:DM Sans,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.12);z-index:99;transition:opacity 0.3s;';
+    document.body.appendChild(el);
+  }
+  el.style.background = isError ? '#fee2e2' : '#e8f2ec';
+  el.style.color = isError ? '#991b1b' : '#2d5a3d';
+  el.textContent = text;
+  el.style.opacity = '1';
+  clearTimeout(el._hideTimeout);
+  el._hideTimeout = setTimeout(()=>{ el.style.opacity='0'; }, 2200);
+}
+
+function fixDatum(d){
+  if(!d) return '';
+  const s = String(d);
+  if(s.includes('T')) return s.split('T')[0];
+  if(s.length > 10) {
+    const dt = new Date(s);
+    if(!isNaN(dt)) return dt.toISOString().split('T')[0];
+  }
+  return s;
+}
+
+async function loadFromSheet(){
+  isLoading=false;
+  renderKeszlet();
+  try{
+    showSyncStatus('Betöltés...', false);
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), 8000);
+    const res = await fetch(SCRIPT_URL + '?action=getAll', {signal: controller.signal});
+    clearTimeout(timeout);
+    const data = await res.json();
+    if(data.error){ throw new Error(data.error); }
+    products = (data.termekek||[]).map(p=>({
+      id:Number(p.id), nev:p.nev, kat:p.kat, keszlet:Number(p.keszlet)||0,
+      min:Number(p.min)||0, besar:Number(p.besar)||0, elar:Number(p.elar)||0, fogyasztoiar:Number(p.fogyasztoiar)||0
+    }));
+    berlok = (data.berlok||[]).map(b=>({
+      id:Number(b.id), nev:b.nev, adoszam:b.adoszam||'', telefon:b.telefon||'', pin:b.pin||''
+    }));
+    eladas = (data.eladasok||[]).map(e=>({
+      id:Number(e.id), berloId:Number(e.berloId), termekId:Number(e.termekId),
+      db:Number(e.db)||0, ar:Number(e.ar)||0, besar:Number(e.besar)||0,
+      datum:fixDatum(e.datum), megjegyzes:e.megjegyzes||'',
+      tipus: e.tipus || 'berlo',
+      jutalekOsszeg: e.jutalekOsszeg!==undefined && e.jutalekOsszeg!=='' ? Number(e.jutalekOsszeg) : 0,
+      jutalekStatusz: e.jutalekStatusz || (e.tipus==='vendeg' ? 'fuggoben' : ''),
+      rogzitette: e.rogzitette || 'admin'
+    }));
+    calcNextIds();
+    showSyncStatus('Betöltve ✓', false);
+    renderKeszlet();
+  }catch(err){
+    if(err.name==='AbortError'){
+      showSyncStatus('Időtúllépés – nincs internetkapcsolat?', true);
+    } else {
+      showSyncStatus('Nem sikerült betölteni: '+err.message, true);
+    }
+    console.error(err);
+  }
+}
+
+async function saveBerlokToSheet(){
+  try{
+    const dataStr = encodeURIComponent(JSON.stringify({berlok: berlok}));
+    const url = SCRIPT_URL + '?action=saveBerlok&data=' + dataStr;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    return true;
+  }catch(err){
+    console.error('Bérlő mentési hiba:', err);
+    return false;
+  }
+}
+
+async function saveToSheet(){
+  if(isLoading) return;
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async ()=>{
+    try{
+      showSyncStatus('Mentés...', false);
+      const payload = { termekek: products, berlok: berlok, eladasok: eladas };
+      const dataStr = encodeURIComponent(JSON.stringify(payload));
+      const url = SCRIPT_URL + '?action=saveAll&data=' + dataStr;
+      const res = await fetch(url);
+      const data = await res.json();
+      if(data.error) throw new Error(data.error);
+      showSyncStatus('Mentve ✓', false);
+    }catch(err){
+      showSyncStatus('Mentési hiba – ellenőrizd a kapcsolatot', true);
+      console.error(err);
+    }
+  }, 600);
+}
+
+const fmt=n=>Math.round(n).toLocaleString('hu-HU').replace(/\s/g,'\u00a0')+'\u00a0Ft';
+const pct=n=>Math.round(n)+'%';
+function margin(p){
+  const elad = p.fogyasztoiar || p.elar;
+  if(!p.besar||!elad)return null;
+  return(elad-p.besar)/elad*100;
+}
+function allapot(p){if(p.keszlet===0)return'out';if(p.keszlet<p.min)return'low';return'ok';}
+function allapotLabel(s){return{ok:'Rendben',low:'Alacsony',out:'Elfogyott'}[s];}
+function initials(n){return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();}
+
+function katClass(kat){
+  const m={"COLOR GEL OILS": "color-gel-oils", "SHADES EQ": "shades-eq", "SHADES ALK": "shades-alk", "OXYDANTS": "oxydants", "LIGHTENERS": "lighteners", "HAJÁPOLÓK SZALONHASZNÁLATRA": "hajapolok-szalonhasznalatra", "ACIDIC BONDING CONCENTRATE": "acidic-bonding-concentrate", "ACIDIC BONDING CONCENTRATE CURLS": "acidic-bonding-concentrate-curls", "ACIDIC COLOR GLOSS": "acidic-color-gloss", "ACIDIC GROW FULL SYSTEM": "acidic-grow-full-system", "ALL SOFT": "all-soft", "ALL SOFT MEGA CURLS": "all-soft-mega-curls", "AMINO MINT": "amino-mint", "BLOND": "blond", "CERAFILL": "cerafill", "EXTREME": "extreme", "FRIZZ DISMISS": "frizz-dismiss", "HIGH BRIGHT": "high-bright", "VOLUME INJECTION": "volume-injection", "ONE UNITED": "one-united", "SCALP RELIEF": "scalp-relief", "EXTREME BLEACH RECOVERY": "extreme-bleach-recovery", "Refill": "refill", "REDKEN BREWS": "redken-brews", "STYLING": "styling"};
+  return m[kat]?'kat-'+m[kat]:'';
+}
+function showTab(t,el){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  el.classList.add('active');
+  if(t==='keszlet')renderKeszlet();
+  if(t==='eladas')renderEladasForm();
+  if(t==='naplo')renderNaplo();
+  if(t==='szamla')renderSzamla();
+  if(t==='berlok')renderBerlok();
+  if(t==='jutalek')renderJutalek();
+}
+
+function renderStats(){
+  const total=products.length;
+  const low=products.filter(p=>allapot(p)==='low').length;
+  const out=products.filter(p=>allapot(p)==='out').length;
+  const beszErtek=products.reduce((s,p)=>s+p.keszlet*p.besar,0);
+  const eladErtek=products.reduce((s,p)=>s+p.keszlet*(p.fogyasztoiar||p.elar),0);
+  const potHaszon=eladErtek-beszErtek;
+  document.getElementById('stats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Összes termék</div><div class="stat-value">${total}</div></div>
+    <div class="stat-card"><div class="stat-label">Figyelmeztetés</div><div class="stat-value warn">${low+out}</div></div>
+    <div class="stat-card"><div class="stat-label">Készlet besz. értéke</div><div class="stat-value">${fmt(beszErtek)}</div></div>
+    <div class="stat-card"><div class="stat-label">Potenciális haszon</div><div class="stat-value green">${fmt(potHaszon)}</div></div>`;
+}
+
+function isMobile(){ return window.innerWidth <= 640; }
+
+function renderKeszlet(){
+  renderStats();
+  const q=document.getElementById('search').value.toLowerCase();
+  const kat=document.getElementById('filterKat').value;
+  const alap=document.getElementById('filterAllapot').value;
+  let list=products.filter(p=>{
+    if(q&&!p.nev.toLowerCase().includes(q)&&!p.kat.toLowerCase().includes(q))return false;
+    if(kat&&p.kat!==kat)return false;
+    if(alap&&allapot(p)!==alap)return false;
+    return true;
+  });
+
+  const mobile = isMobile();
+  const cardsDiv = document.getElementById('keszlet-cards');
+  const tableCard = document.querySelector('#tab-keszlet .table-card');
+  if(cardsDiv) cardsDiv.style.display = mobile ? 'block' : 'none';
+  if(tableCard) tableCard.style.display = mobile ? 'none' : '';
+
+  if(mobile && cardsDiv){
+    if(!list.length){ cardsDiv.innerHTML='<div class="empty-state">Nincs találat</div>'; return; }
+    cardsDiv.innerHTML = list.map(p=>{
+      const a=allapot(p);
+      const berloi=p.fogyasztoiar?Math.round(p.fogyasztoiar*0.9):0;
+      const rowCls=katClass(p.kat);
+      return `<div class="${rowCls}" style="border-radius:12px;border:1px solid var(--border);padding:14px 16px;margin-bottom:10px;background:var(--surface);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-weight:600;font-size:14px;margin-bottom:2px;">${p.nev}</div>
+            <div style="font-size:12px;color:var(--text3);">${p.kat}</div>
+          </div>
+          <span class="badge badge-${a}">${allapotLabel(a)}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;margin-bottom:12px;">
+          <div style="background:var(--surface2);border-radius:8px;padding:8px;">
+            <div style="color:var(--text3);margin-bottom:2px;">Készlet</div>
+            <div style="font-weight:700;font-size:15px;">${p.keszlet} db</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:8px;">
+            <div style="color:var(--text3);margin-bottom:2px;">Besz. ár</div>
+            <div style="font-weight:600;">${fmt(p.besar)}</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:8px;">
+            <div style="color:var(--text3);margin-bottom:2px;">Br. fodrász ár</div>
+            <div style="font-weight:600;">${p.fogyasztoiar?fmt(p.fogyasztoiar):'–'}</div>
+          </div>
+          <div style="background:var(--accent-light);border-radius:8px;padding:8px;">
+            <div style="color:var(--text3);margin-bottom:2px;">Bérlői ár (−10%)</div>
+            <div style="font-weight:700;color:var(--accent);">${berloi?fmt(berloi):'–'}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-sm" style="flex:1;justify-content:center;" onclick="openMozg(${p.id})">Mozgás</button>
+          <button class="btn btn-sm" style="flex:1;justify-content:center;" onclick="openEdit(${p.id})">Szerkesztés</button>
+          <button class="btn btn-sm btn-danger" onclick="delProduct(${p.id})">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  const tbody=document.getElementById('keszlet-tbody');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="10"><div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z"/></svg>Nincs találat</div></td></tr>';return;}
+  tbody.innerHTML=list.map(p=>{
+    const a=allapot(p);
+    const m=margin(p);
+    const mStr=m!==null?`<span class="${m>=0?'profit-pos':'profit-neg'}">${pct(m)}</span>`:'–';
+    const rowCls=katClass(p.kat);
+    const berloi=p.fogyasztoiar?Math.round(p.fogyasztoiar*0.9):0;
+    return`<tr class="${rowCls}">
+      <td class="td-name" title="${p.nev}">${p.nev}</td>
+      <td>${p.kat}</td>
+      <td class="td-mono" style="font-weight:600">${p.keszlet} db</td>
+      <td class="td-mono">${fmt(p.besar)}</td>
+      <td class="td-mono">${p.fogyasztoiar?fmt(p.fogyasztoiar):'–'}</td>
+      <td class="td-mono">${isCsakBerloi(p.kat)?'<span style="color:var(--text3);font-size:11px;">csak bérlő</span>':(p.elar?fmt(p.elar):'–')}</td>
+      <td class="td-mono" style="color:var(--accent);font-weight:600">${berloi?fmt(berloi):'–'}</td>
+      <td>${mStr}</td>
+      <td><span class="badge badge-${a}">${allapotLabel(a)}</span></td>
+      <td><div class="td-actions">
+        <button class="btn btn-sm" title="Mozgás" onclick="openMozg(${p.id})">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg>
+        </button>
+        <button class="btn btn-sm" title="Szerkesztés" onclick="openEdit(${p.id})">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/></svg>
+        </button>
+        <button class="btn btn-sm btn-danger" title="Törlés" onclick="delProduct(${p.id})">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+        </button>
+      </div></td>
+    </tr>`;}).join('');
+}
+
+function updateModalKat(){
+  const kat=document.getElementById('f-kat').value;
+  const csakBerloi=isCsakBerloi(kat);
+  const elarInput=document.getElementById('f-elar');
+  const elarLabel=document.getElementById('f-elar-label');
+  if(csakBerloi){
+    elarInput.value=0;
+    elarInput.disabled=true;
+    elarInput.style.opacity='0.4';
+    elarInput.style.background='var(--surface2)';
+    if(elarLabel) elarLabel.textContent='Eladási ár – vendégnek (nem értékesíthető)';
+  } else {
+    elarInput.disabled=false;
+    elarInput.style.opacity='1';
+    elarInput.style.background='var(--surface)';
+    if(elarLabel) elarLabel.textContent='Eladási ár – vendégnek (Ft/db)';
+  }
+  updateModalMargin();
+}
+function updateModalMargin(){
+  const b=parseFloat(document.getElementById('f-besar').value)||0;
+  const f=parseFloat(document.getElementById('f-fogyasztoiar').value)||0;
+  const e=parseFloat(document.getElementById('f-elar').value)||0;
+  const berloi=Math.round(f*0.9);
+  const berloiEl=document.getElementById('f-berloi-ar');
+  berloiEl.value = f ? (berloi.toLocaleString('hu-HU')+' Ft') : '–';
+  const el=document.getElementById('modal-margin');
+  if(!f||!b){el.textContent='–';el.style.color='var(--text3)';return;}
+  const m=(f-b)/f*100;
+  el.textContent=Math.round(m)+'% · haszon bruttóból: '+fmt(f-b)+'/db · bérlői haszon: '+fmt(berloi-b)+'/db';
+  el.style.color=m>=0?'var(--accent)':'var(--danger)';
+}
+function openAdd(){
+  editPid=null;document.getElementById('modalTitle').textContent='Új termék';
+  ['f-nev'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-kat').value='COLOR GEL OILS';
+  document.getElementById('f-keszlet').value=0;document.getElementById('f-min').value=3;
+  document.getElementById('f-besar').value=0;document.getElementById('f-fogyasztoiar').value=0;document.getElementById('f-elar').value=0;
+  document.getElementById('f-berloi-ar').value='–';
+  document.getElementById('modal-margin').textContent='–';
+  updateModalKat();
+  document.getElementById('addModal').style.display='flex';
+}
+function openEdit(id){
+  editPid=id;const p=products.find(x=>x.id===id);
+  document.getElementById('modalTitle').textContent='Termék szerkesztése';
+  document.getElementById('f-nev').value=p.nev;document.getElementById('f-kat').value=p.kat;
+  document.getElementById('f-keszlet').value=p.keszlet;document.getElementById('f-min').value=p.min;
+  document.getElementById('f-besar').value=p.besar;document.getElementById('f-fogyasztoiar').value=p.fogyasztoiar||0;document.getElementById('f-elar').value=p.elar;
+  updateModalKat();
+  updateModalMargin();document.getElementById('addModal').style.display='flex';
+}
+function closeAdd(){document.getElementById('addModal').style.display='none';}
+function saveProduct(){
+  var nev = document.getElementById('f-nev').value.trim();
+  if(!nev){ alert('Add meg a termék nevét!'); return; }
+  
+  var kat = document.getElementById('f-kat').value;
+  var keszlet = parseInt(document.getElementById('f-keszlet').value) || 0;
+  var min = parseInt(document.getElementById('f-min').value) || 0;
+  var besar = parseInt(document.getElementById('f-besar').value) || 0;
+  var fogyasztoiar = parseInt(document.getElementById('f-fogyasztoiar').value) || 0;
+  var elarEl = document.getElementById('f-elar');
+  elarEl.disabled = false;
+  var elar = parseInt(elarEl.value) || 0;
+  if(isCsakBerloi(kat)) elarEl.disabled = true;
+
+  if(editPid !== null && editPid !== undefined){
+    var pid = Number(editPid);
+    var found = false;
+    for(var i=0; i<products.length; i++){
+      if(Number(products[i].id) === pid){
+        products[i].nev = nev;
+        products[i].kat = kat;
+        products[i].keszlet = keszlet;
+        products[i].min = min;
+        products[i].besar = besar;
+        products[i].fogyasztoiar = fogyasztoiar;
+        products[i].elar = elar;
+        found = true;
+        break;
+      }
+    }
+    if(!found){ alert('Hiba: termék nem található! ID: '+pid); return; }
+  } else {
+    var dupla = false;
+    for(var j=0; j<products.length; j++){
+      if(products[j].nev.toLowerCase() === nev.toLowerCase()){ dupla = true; break; }
+    }
+    if(dupla){ alert('Ez a termék már létezik: "'+nev+'"'); return; }
+    products.push({id: nextPid++, nev: nev, kat: kat, keszlet: keszlet, min: min, besar: besar, fogyasztoiar: fogyasztoiar, elar: elar});
+  }
+  
+  closeAdd();
+  renderKeszlet();
+  saveToSheet();
+}
+function delProduct(id){if(!confirm('Biztosan törlöd ezt a terméket?'))return;products=products.filter(p=>p.id!==id);renderKeszlet();saveToSheet();}
+
+function openMozg(id){mozgPid=id;const p=products.find(x=>x.id===id);
+  document.getElementById('mozgTitle').textContent=p.nev;
+  document.getElementById('m-db').value=1;document.getElementById('m-tipus').value='be';
+  document.getElementById('mozgModal').classList.add('open');}
+function closeMozg(){document.getElementById('mozgModal').classList.remove('open');}
+function saveMozg(){
+  const t=document.getElementById('m-tipus').value,db=parseInt(document.getElementById('m-db').value)||0;
+  if(db<=0){alert('Érvényes mennyiséget adj meg!');return;}
+  const p=products.find(x=>x.id===mozgPid);
+  if(t==='ki'&&p.keszlet<db){alert('Nincs elegendő készlet!');return;}
+  p.keszlet+=t==='be'?db:-db;closeMozg();renderKeszlet();saveToSheet();
+}
+
+const CSAK_BERLOI_KAT = [
+  'COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS',
+  'LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA'
+];
+
+function isCsakBerloi(kat){ return CSAK_BERLOI_KAT.includes(kat); }
+
+function setEladasTipus(t){
+  currentEladasTipus = t;
+  const bBtn=document.getElementById('typeBtnBerlo'), vBtn=document.getElementById('typeBtnVendeg');
+  bBtn.classList.toggle('type-active', t==='berlo');
+  vBtn.classList.toggle('type-active', t==='vendeg');
+  document.getElementById('e-berlo-label').textContent = t==='berlo' ? 'Bérlő' : 'Melyik bérlő adta el?';
+  document.getElementById('tipus-hint').textContent = t==='berlo'
+    ? 'A bérlő megveszi tőled a terméket – ez kerül rá a havi számlájára.'
+    : 'A bérlő eladta a terméket egy vendégnek a te készletedből. A teljes bevétel a tiéd, de a bérlő 10% jutalékot kap.';
+  document.getElementById('calc-box-berlo').style.display = t==='berlo' ? 'grid' : 'none';
+  document.getElementById('calc-box-vendeg').style.display = t==='vendeg' ? 'grid' : 'none';
+  updateEladasKatLista();
+}
+
+function updateEladasTermekek(){
+  const kat=document.getElementById('e-kat').value;
+  const vBtn=document.getElementById('typeBtnVendeg');
+
+  // Vendégnél csak nem-technikai termékek
+  const filtered=products.filter(p=>{
+    if(p.keszlet<=0) return false;
+    if(kat && p.kat!==kat) return false;
+    if(currentEladasTipus==='vendeg' && isCsakBerloi(p.kat)) return false;
+    return true;
+  });
+  document.getElementById('e-termek').innerHTML='<option value="">-- Válassz terméket --</option>'+filtered.map(p=>`<option value="${p.id}">${p.nev} (${p.keszlet} db)</option>`).join('');
+  document.getElementById('e-ar').value=0;
+  document.getElementById('e-ar-hint').textContent='';
+  updateEladasCalc();
+}
+
+function updateEladasKatLista(){
+  // Kategória lista frissítése típus szerint
+  const kat=document.getElementById('e-kat');
+  const curVal=kat.value;
+  const allKats=['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA','ACIDIC BONDING CONCENTRATE','ACIDIC BONDING CONCENTRATE CURLS','ACIDIC COLOR GLOSS','ACIDIC GROW FULL SYSTEM','ALL SOFT','ALL SOFT MEGA CURLS','AMINO MINT','BLOND','CERAFILL','EXTREME','FRIZZ DISMISS','HIGH BRIGHT','VOLUME INJECTION','ONE UNITED','SCALP RELIEF','EXTREME BLEACH RECOVERY','Refill','REDKEN BREWS','STYLING'];
+  const visibleKats = currentEladasTipus==='berlo' ? allKats : allKats.filter(k=>!isCsakBerloi(k));
+  kat.innerHTML='<option value="">-- Minden kategória --</option>'+visibleKats.map(k=>`<option value="${k}">${k}</option>`).join('');
+  // Ha az előző érték már nem elérhető, töröljük
+  if(visibleKats.includes(curVal)) kat.value=curVal; else kat.value='';
+  updateEladasTermekek();
+}
+function renderEladasForm(){
+  document.getElementById('e-berlo').innerHTML='<option value="">-- Válassz bérlőt --</option>'+berlok.map(b=>`<option value="${b.id}">${b.nev}</option>`).join('');
+  document.getElementById('e-kat').value='';
+  document.getElementById('e-datum').value=new Date().toISOString().split('T')[0];
+  document.getElementById('e-ar').value=0;document.getElementById('e-db').value=1;
+  document.getElementById('e-megjegyzes').value='';document.getElementById('e-ar-hint').textContent='';
+  setEladasTipus('berlo');
+}
+function updateEladasArak(){
+  const tid=parseInt(document.getElementById('e-termek').value);
+  const p=products.find(x=>x.id===tid);
+  if(p){
+    const berloi=Math.round((p.fogyasztoiar||p.elar)*0.9);
+    const ar = currentEladasTipus==='berlo' ? berloi : p.elar;
+    document.getElementById('e-ar').value=ar;
+    const hint = currentEladasTipus==='berlo'
+      ? 'Br. fodrász ár: '+fmt(p.fogyasztoiar||0)+' · Bérlői ár (−10%): '+fmt(berloi)+' · Besz. ár: '+fmt(p.besar)
+      : 'Vendég ár: '+fmt(p.elar)+' · Besz. ár: '+fmt(p.besar);
+    document.getElementById('e-ar-hint').textContent=hint;
+  } else {
+    document.getElementById('e-ar').value=0;
+    document.getElementById('e-ar-hint').textContent='';
+  }
+  updateEladasCalc();
+}
+function updateEladasCalc(){
+  const db=parseInt(document.getElementById('e-db').value)||0;
+  const ar=parseInt(document.getElementById('e-ar').value)||0;
+  const tid=parseInt(document.getElementById('e-termek').value)||0;
+  const p=products.find(x=>x.id===tid);
+  const besar=p?p.besar:0;
+  const bevetel=db*ar,koltseg=db*besar;
+  if(currentEladasTipus==='berlo'){
+    const haszon=bevetel-koltseg;
+    document.getElementById('calc-bevetel').textContent=fmt(bevetel);
+    document.getElementById('calc-koltseg').textContent=fmt(koltseg);
+    const hEl=document.getElementById('calc-haszon');
+    hEl.textContent=fmt(haszon);
+    hEl.className='calc-value '+(haszon>=0?'profit-pos':'profit-neg');
+  } else {
+    const jutalek=bevetel*JUTALEK_PCT/100;
+    const sajatHaszon=bevetel-koltseg-jutalek;
+    document.getElementById('calc-v-bevetel').textContent=fmt(bevetel);
+    document.getElementById('calc-v-koltseg').textContent=fmt(koltseg);
+    document.getElementById('calc-v-jutalek').textContent=fmt(jutalek);
+    const hEl=document.getElementById('calc-v-haszon');
+    hEl.textContent=fmt(sajatHaszon);
+    hEl.className='calc-value '+(sajatHaszon>=0?'profit-pos':'profit-neg');
+  }
+}
+function rogzitEladas(){
+  const berloId=parseInt(document.getElementById('e-berlo').value);
+  const termekId=parseInt(document.getElementById('e-termek').value);
+  const db=parseInt(document.getElementById('e-db').value)||0;
+  const ar=parseInt(document.getElementById('e-ar').value)||0;
+  const datum=document.getElementById('e-datum').value;
+  const megjegyzes=document.getElementById('e-megjegyzes').value;
+  if(!berloId){alert(currentEladasTipus==='berlo' ? 'Válassz bérlőt!' : 'Válaszd ki melyik bérlő adta el!');return;}
+  if(!termekId){alert('Válassz terméket!');return;}
+  if(db<=0){alert('Adj meg mennyiséget!');return;}
+  const p=products.find(x=>x.id===termekId);
+  if(p.keszlet<db){alert('Nincs elegendő készlet! ('+p.keszlet+' db van)');return;}
+  p.keszlet-=db;
+  const bevetel=db*ar;
+  const jutalekOsszeg = currentEladasTipus==='vendeg' ? Math.round(bevetel*JUTALEK_PCT/100) : 0;
+  eladas.push({
+    id:nextEid++, berloId, termekId, db, ar, besar:p.besar, datum, megjegyzes,
+    tipus: currentEladasTipus,
+    jutalekOsszeg,
+    jutalekStatusz: currentEladasTipus==='vendeg' ? 'fuggoben' : ''
+  });
+  alert('Eladás rögzítve!');renderEladasForm();saveToSheet();
+}
+
+function populateSelect(id,placeholder){
+  const s=document.getElementById(id);const cur=s.value;
+  s.innerHTML=placeholder+berlok.map(b=>`<option value="${b.id}">${b.nev}</option>`).join('');
+  if(cur)s.value=cur;
+}
+function renderNaplo(){
+  populateSelect('n-berlo','<option value="">Minden bérlő</option>');
+  const bId=parseInt(document.getElementById('n-berlo').value)||0;
+  const tipusF=document.getElementById('n-tipus').value;
+  const tol=document.getElementById('n-tol').value;
+  const ig=document.getElementById('n-ig').value;
+  let list=[...eladas].filter(e=>{
+    if(bId&&e.berloId!==bId)return false;
+    if(tipusF&&(e.tipus||'berlo')!==tipusF)return false;
+    if(tol&&e.datum<tol)return false;
+    if(ig&&e.datum>ig)return false;
+    return true;
+  }).sort((a,b)=>b.datum.localeCompare(a.datum));
+  const tbody=document.getElementById('naplo-tbody');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="12"><div class="empty-state">Nincs adat a szűrőkre</div></td></tr>';
+    document.getElementById('naplo-sum-bar').innerHTML='';return;}
+  tbody.innerHTML=list.map(e=>{
+    const b=berlok.find(x=>x.id===e.berloId),p=products.find(x=>x.id===e.termekId);
+    const besar=e.besar!==undefined?e.besar:(p?p.besar:0);
+    const bev=e.db*e.ar,kolt=e.db*besar;
+    const tipus=e.tipus||'berlo';
+    const isVendeg=tipus==='vendeg';
+    const has=isVendeg ? (bev-kolt-(e.jutalekOsszeg||0)) : (bev-kolt);
+    const tipusLabel=isVendeg?'<span class="type-pill vendeg">Vendég</span>':'<span class="type-pill berlo">Bérlő</span>';
+    const rogz = e.rogzitette||'admin';
+    const rogzLabel = rogz==='berlo'
+      ? '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#FCEBEB;color:#A32D2D;">Bérlő</span>'
+      : '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#EAF3DE;color:#3B6D11;">Admin</span>';
+    return`<tr style="${rogz==='berlo'?'background:#FEF5F5;':'background:#F7FBF2;'}">
+      <td>${e.datum}</td>
+      <td>${tipusLabel}</td>
+      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${b?b.nev:'?'}">${b?b.nev:'?'}</td>
+      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p?p.kat:''}">${p?p.kat:''}</td>
+      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p?p.nev:'?'}">${p?p.nev:'?'}</td>
+      <td class="td-mono">${e.db} db</td>
+      <td class="td-mono">${fmt(e.ar)}</td>
+      <td class="td-mono">${fmt(bev)}</td>
+      <td class="td-mono">${fmt(kolt)}</td>
+      <td class="td-mono ${has>=0?'profit-pos':'profit-neg'}">${isVendeg?'Jut: '+fmt(e.jutalekOsszeg||0):fmt(has)}</td>
+      <td>${rogzLabel}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="delNaplo(${e.id})" title="Törlés">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+      </button></td>
+    </tr>`;}).join('');
+  const totBev=list.reduce((s,e)=>s+e.db*e.ar,0);
+  const totKolt=list.reduce((s,e)=>s+(e.besar!==undefined?e.besar:(products.find(x=>x.id===e.termekId)||{besar:0}).besar)*e.db,0);
+  const totJutalek=list.reduce((s,e)=>s+((e.tipus==='vendeg')?(e.jutalekOsszeg||0):0),0);
+  const totHas=totBev-totKolt-totJutalek;
+  document.getElementById('naplo-sum-bar').innerHTML=`
+    <div class="naplo-sum">
+      <span>Bevétel: <strong>${fmt(totBev)}</strong></span>
+      <span>Anyagköltség: <strong>${fmt(totKolt)}</strong></span>
+      <span>Bérlői jutalék: <strong>${fmt(totJutalek)}</strong></span>
+      <span class="${totHas>=0?'profit-pos':'profit-neg'}">Haszon: <strong>${fmt(totHas)}</strong></span>
+    </div>`;
+}
+function clearNaploFilter(){['n-tipus','n-berlo','n-tol','n-ig'].forEach(id=>document.getElementById(id).value='');renderNaplo();}
+function delNaplo(id){
+  if(!confirm('Biztosan törlöd ezt a tételt a naplóból?\n\nFigyelem: a készlet NEM kerül vissza!'))return;
+  eladas=eladas.filter(e=>e.id!==id);
+  renderNaplo();
+  saveToSheet();
+}
+
+function renderSzamla(){
+  populateSelect('s-berlo','<option value="">-- Válassz bérlőt --</option>');
+  const bId=parseInt(document.getElementById('s-berlo').value)||0;
+  const tol=document.getElementById('s-tol').value;
+  const ig=document.getElementById('s-ig').value;
+  const div=document.getElementById('szamla-tartalom');
+  if(!bId){div.innerHTML='<div class="empty-state" style="padding:60px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185z"/></svg>Válassz bérlőt a számlázási összesítőhöz</div>';return;}
+  const b=berlok.find(x=>x.id===bId);
+  let list=eladas.filter(e=>{
+    if(e.berloId!==bId)return false;
+    if(tol&&e.datum<tol)return false;
+    if(ig&&e.datum>ig)return false;
+    return true;
+  }).sort((a,c)=>a.datum.localeCompare(c.datum));
+  if(!list.length){div.innerHTML='<div class="empty-state" style="padding:40px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">Nincs értékesítés ebben az időszakban</div>';return;}
+  const totBev=list.reduce((s,e)=>s+e.db*e.ar,0);
+  const totKolt=list.reduce((s,e)=>s+(e.besar!==undefined?e.besar:(products.find(x=>x.id===e.termekId)||{besar:0}).besar)*e.db,0);
+  const totHas=totBev-totKolt;
+  const idoszak=(tol||list[0].datum)+' – '+(ig||list[list.length-1].datum);
+  div.innerHTML=`<div class="szamla-wrap">
+    <div class="szamla-header">
+      <div class="avatar" style="width:48px;height:48px;font-size:16px;">${initials(b.nev)}</div>
+      <div>
+        <div style="font-size:16px;font-weight:600;">${b.nev}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">${b.adoszam?'Adószám: '+b.adoszam:''}${b.adoszam&&b.telefon?' · ':''}${b.telefon||''}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:1px;">Időszak: ${idoszak}</div>
+      </div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th style="width:12%">Dátum</th>
+        <th style="width:32%">Termék</th>
+        <th style="width:8%;text-align:right">Db</th>
+        <th style="width:14%;text-align:right">Elad. ár</th>
+        <th style="width:14%;text-align:right">Bevétel</th>
+        <th style="width:10%;text-align:right">Anyagk.</th>
+        <th style="width:10%;text-align:right">Haszon</th>
+      </tr></thead>
+      <tbody>${list.map(e=>{
+        const p=products.find(x=>x.id===e.termekId);
+        const besar=e.besar!==undefined?e.besar:(p?p.besar:0);
+        const bev=e.db*e.ar,kolt=e.db*besar,has=bev-kolt;
+        return`<tr>
+          <td>${e.datum}</td>
+          <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p?p.nev:'?'}">${p?p.nev:'?'}${e.megjegyzes?'<br><span style="font-size:11px;color:var(--text3)">'+e.megjegyzes+'</span>':''}</td>
+          <td class="td-mono" style="text-align:right">${e.db}</td>
+          <td class="td-mono" style="text-align:right">${fmt(e.ar)}</td>
+          <td class="td-mono" style="text-align:right">${fmt(bev)}</td>
+          <td class="td-mono" style="text-align:right">${fmt(kolt)}</td>
+          <td class="td-mono ${has>=0?'profit-pos':'profit-neg'}" style="text-align:right">${fmt(has)}</td>
+        </tr>`;}).join('')}
+      </tbody>
+    </table></div>
+    <div class="szamla-footer">
+      <div><div class="szamla-total-label">Számlázandó összeg</div><div class="szamla-total-value" style="color:var(--purple)">${fmt(totBev)}</div></div>
+      <div><div class="szamla-total-label">Anyagköltség</div><div class="szamla-total-value">${fmt(totKolt)}</div></div>
+      <div><div class="szamla-total-label">Te kerestél</div><div class="szamla-total-value ${totHas>=0?'profit-pos':'profit-neg'}">${fmt(totHas)}</div></div>
+    </div>
+  </div>`;
+}
+
+function renderBerlok(){
+  const div=document.getElementById('berlo-lista');
+  if(!berlok.length){div.innerHTML='<div class="empty-state" style="padding:40px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">Még nincs bérlő rögzítve</div>';return;}
+  div.innerHTML=berlok.map(b=>{
+    const list=eladas.filter(e=>e.berloId===b.id);
+    const bev=list.reduce((s,e)=>s+e.db*e.ar,0);
+    const kolt=list.reduce((s,e)=>s+(e.besar!==undefined?e.besar:(products.find(x=>x.id===e.termekId)||{besar:0}).besar)*e.db,0);
+    const has=bev-kolt;
+    return`<div class="berlo-card">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div class="avatar">${initials(b.nev)}</div>
+        <div>
+          <div style="font-size:15px;font-weight:600;">${b.nev}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px;">${b.adoszam?'Adószám: '+b.adoszam+' ':' '}${b.telefon||''}</div>
+          <div class="berlo-stats">
+            <span class="berlo-stat">Bevétel: <strong>${fmt(bev)}</strong></span>
+            <span class="berlo-stat">Haszon: <strong class="${has>=0?'green':''}">${fmt(has)}</strong></span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-sm" onclick="openBerloEdit(${b.id})">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/></svg>
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="delBerlo(${b.id})">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+        </button>
+      </div>
+    </div>`;}).join('');
+}
+function openBerloAdd(){editBid=null;document.getElementById('berloModalTitle').textContent='Új bérlő';
+  ['b-nev','b-adoszam','b-telefon','b-pin'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('berloModal').classList.add('open');}
+function openBerloEdit(id){editBid=id;const b=berlok.find(x=>x.id===id);
+  document.getElementById('berloModalTitle').textContent='Bérlő szerkesztése';
+  document.getElementById('b-nev').value=b.nev;document.getElementById('b-adoszam').value=b.adoszam||'';
+  document.getElementById('b-telefon').value=b.telefon||'';document.getElementById('b-pin').value=b.pin||'';
+  document.getElementById('berloModal').classList.add('open');}
+function closeBerlo(){document.getElementById('berloModal').classList.remove('open');}
+function saveBerlo(){
+  const nev=document.getElementById('b-nev').value.trim();
+  if(!nev){alert('Add meg a bérlő nevét!');return;}
+  const obj={nev,adoszam:document.getElementById('b-adoszam').value.trim(),telefon:document.getElementById('b-telefon').value.trim(),pin:document.getElementById('b-pin').value.trim()};
+  if(editBid){const i=berlok.findIndex(x=>x.id===editBid);berlok[i]={...berlok[i],...obj};}
+  else berlok.push({id:nextBid++,...obj});
+  closeBerlo();renderBerlok();
+  // Bérlőket külön mentjük GET kéréssel (megbízhatóbb)
+  showSyncStatus('Mentés...', false);
+  saveBerlokToSheet().then(ok=>{
+    if(ok) showSyncStatus('Mentve ✓', false);
+    else showSyncStatus('Mentési hiba!', true);
+  });
+}
+function delBerlo(id){if(!confirm('Törlöd ezt a bérlőt?'))return;berlok=berlok.filter(b=>b.id!==id);renderBerlok();saveToSheet();}
+
+function renderJutalek(){
+  populateSelect('j-berlo','<option value="">Minden bérlő</option>');
+  const bId=parseInt(document.getElementById('j-berlo').value)||0;
+  const statF=document.getElementById('j-statusz').value;
+  let list=eladas.filter(e=>(e.tipus||'berlo')==='vendeg').filter(e=>{
+    if(bId&&e.berloId!==bId)return false;
+    if(statF&&(e.jutalekStatusz||'fuggoben')!==statF)return false;
+    return true;
+  }).sort((a,b)=>b.datum.localeCompare(a.datum));
+
+  const allVendeg=eladas.filter(e=>(e.tipus||'berlo')==='vendeg');
+  const totFuggoben=allVendeg.filter(e=>(e.jutalekStatusz||'fuggoben')==='fuggoben').reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
+  const totKifizetve=allVendeg.filter(e=>e.jutalekStatusz==='kifizetve').reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
+  const totBerletbol=allVendeg.filter(e=>e.jutalekStatusz==='berletbol').reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
+  document.getElementById('jutalek-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Függőben (tartozol)</div><div class="stat-value warn">${fmt(totFuggoben)}</div></div>
+    <div class="stat-card"><div class="stat-label">Kifizetve</div><div class="stat-value green">${fmt(totKifizetve)}</div></div>
+    <div class="stat-card"><div class="stat-label">Bérletiből levonva</div><div class="stat-value">${fmt(totBerletbol)}</div></div>`;
+
+  const tbody=document.getElementById('jutalek-tbody');
+  if(!list.length){tbody.innerHTML='<tr><td colspan="7"><div class="empty-state">Nincs vendégeladásból származó jutalék a szűrőkre</div></td></tr>';return;}
+  tbody.innerHTML=list.map(e=>{
+    const b=berlok.find(x=>x.id===e.berloId),p=products.find(x=>x.id===e.termekId);
+    const bev=e.db*e.ar;
+    const statusz=e.jutalekStatusz||'fuggoben';
+    return`<tr>
+      <td>${e.datum}</td>
+      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${b?b.nev:'?'}">${b?b.nev:'?'}</td>
+      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p?p.nev:'?'}">${p?p.nev:'?'}</td>
+      <td class="td-mono">${e.db} db</td>
+      <td class="td-mono">${fmt(bev)}</td>
+      <td class="td-mono" style="font-weight:600;color:var(--accent2)">${fmt(e.jutalekOsszeg||0)}</td>
+      <td>
+        <select class="status-select" onchange="setJutalekStatusz(${e.id}, this.value)">
+          <option value="fuggoben" ${statusz==='fuggoben'?'selected':''}>Függőben</option>
+          <option value="kifizetve" ${statusz==='kifizetve'?'selected':''}>Kifizetve</option>
+          <option value="berletbol" ${statusz==='berletbol'?'selected':''}>Bérletiből levonva</option>
+        </select>
+      </td>
+    </tr>`;}).join('');
+}
+function setJutalekStatusz(eladasId, ujStatusz){
+  const e=eladas.find(x=>x.id===eladasId);
+  if(!e)return;
+  e.jutalekStatusz=ujStatusz;
+  saveToSheet();
+  renderJutalek();
+}
+
+// Automatikus frissítés ha az oldal előtérbe kerül
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible'){
+    loadFromSheet();
+  }
+});
+
+// Automatikus frissítés 30 másodpercenként
+setInterval(function(){
+  if(document.visibilityState === 'visible' && !isLoading){
+    loadFromSheet();
+  }
+}, 30000);
+
+// Focus esemény (böngésző fülre visszaváltáskor)
+window.addEventListener('focus', function(){
+  if(!isLoading) loadFromSheet();
+});
+
+loadFromSheet();
+</script>
+</body>
+</html>
