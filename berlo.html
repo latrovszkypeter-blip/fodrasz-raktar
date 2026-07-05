@@ -442,6 +442,7 @@ function indulApp(){
   document.getElementById('app').style.display = 'block';
   document.getElementById('app-nev').textContent = bejelentkezettBerlo.nev;
   bInitEladas();
+  bUpdateKatLista(); // Frissítjük a betöltött termékek alapján
   bRenderNaplo();
   bRenderJutalek();
 }
