@@ -443,7 +443,7 @@ tbody tr:hover td { filter: brightness(0.97); }
       <div class="form-row"><label>Mennyiség (db)</label>
         <input type="number" id="e-db" min="1" value="1" oninput="updateEladasCalc()" />
       </div>
-      <div class="form-row"><label>Dátum</label><input type="date" id="e-datum" /></div>
+      <div class="form-row"><label>Dátum</label><input type="datetime-local" id="e-datum" /></div>
     </div>
     <div class="form-row" style="margin-top:14px;"><label>Megjegyzés</label><input type="text" id="e-megjegyzes" placeholder="opcionális" /></div>
     <hr class="divider">
@@ -669,10 +669,14 @@ function showSyncStatus(text, isError){
 function fixDatum(d){
   if(!d) return '';
   const s = String(d);
-  if(s.includes('T')) return s.split('T')[0];
-  if(s.length > 10) {
-    const dt = new Date(s);
-    if(!isNaN(dt)) return dt.toISOString().split('T')[0];
+  // Ha ISO timestamp (pl. 2026-06-29T22:00:00.000Z)
+  if(s.includes('T') && s.includes('Z')){
+    // Csak dátum rész (időzóna nélkül)
+    return s.split('T')[0];
+  }
+  // Ha datetime-local formátum (2026-07-05T14:32 vagy 2026-07-05 14:32)
+  if(s.includes('T') || (s.length > 10 && s.includes(' ') && s.indexOf(' ') === 10)){
+    return s.replace('T',' ');
   }
   return s;
 }
@@ -1053,7 +1057,9 @@ function updateEladasKatLista(){
 function renderEladasForm(){
   document.getElementById('e-berlo').innerHTML='<option value="">-- Válassz bérlőt --</option>'+berlok.map(b=>`<option value="${b.id}">${b.nev}</option>`).join('');
   document.getElementById('e-kat').value='';
-  document.getElementById('e-datum').value=new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const localStr = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+'T'+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('e-datum').value=localStr;
   document.getElementById('e-ar').value=0;document.getElementById('e-db').value=1;
   document.getElementById('e-megjegyzes').value='';document.getElementById('e-ar-hint').textContent='';
   setEladasTipus('berlo');
@@ -1105,7 +1111,8 @@ function rogzitEladas(){
   const termekId=parseInt(document.getElementById('e-termek').value);
   const db=parseInt(document.getElementById('e-db').value)||0;
   const ar=parseInt(document.getElementById('e-ar').value)||0;
-  const datum=document.getElementById('e-datum').value;
+  const datumRaw = document.getElementById('e-datum').value;
+  const datum = datumRaw ? datumRaw.replace('T',' ') : new Date().toLocaleString('hu-HU').slice(0,16);
   const megjegyzes=document.getElementById('e-megjegyzes').value;
   if(!berloId){alert(currentEladasTipus==='berlo' ? 'Válassz bérlőt!' : 'Válaszd ki melyik bérlő adta el!');return;}
   if(!termekId){alert('Válassz terméket!');return;}
@@ -1154,10 +1161,24 @@ function renderNaplo(){
     const has=isVendeg ? (bev-kolt-(e.jutalekOsszeg||0)) : (bev-kolt);
     const tipusLabel=isVendeg?'<span class="type-pill vendeg">Vendég</span>':'<span class="type-pill berlo">Bérlő</span>';
     const rogz = e.rogzitette||'admin';
-    const rogzLabel = rogz==='berlo'
-      ? '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#FCEBEB;color:#A32D2D;">Bérlő</span>'
-      : '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#EAF3DE;color:#3B6D11;">Admin</span>';
-    return`<tr style="${rogz==='berlo'?'background:#FEF5F5;':'background:#F7FBF2;'}">
+    // Szín logika: admin=zöld/piros, bérlő saját=kék, bérlő vendég=narancs
+    let rowBg = '';
+    let rogzLabel = '';
+    if(rogz==='berlo'){
+      if(isVendeg){
+        rowBg = 'background:#FFF3E0;'; // halvány narancssárga - bérlő vendégeladás
+        rogzLabel = '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#FFE0B2;color:#E65100;">Bérlő - vendég</span>';
+      } else {
+        rowBg = 'background:#E3F2FD;'; // halvány kék - bérlő saját vásárlás
+        rogzLabel = '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#BBDEFB;color:#1565C0;">Bérlő - saját</span>';
+      }
+    } else {
+      rowBg = isVendeg ? 'background:#FEF5F5;' : 'background:#F7FBF2;';
+      rogzLabel = isVendeg
+        ? '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#FCEBEB;color:#A32D2D;">Admin</span>'
+        : '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#EAF3DE;color:#3B6D11;">Admin</span>';
+    }
+    return`<tr style="${rowBg}">
       <td>${e.datum}</td>
       <td>${tipusLabel}</td>
       <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${b?b.nev:'?'}">${b?b.nev:'?'}</td>
