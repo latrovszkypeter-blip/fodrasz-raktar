@@ -1492,12 +1492,27 @@ function renderArazas(){
   }).join('');
 }
 
+var arazasSaveTimeout = null;
 function updateArazasField(input){
   const id = Number(input.dataset.id);
   const field = input.dataset.field;
   const val = parseInt(input.value)||0;
   const p = products.find(x=>x.id===id);
-  if(p) p[field] = val;
+  if(p){
+    p[field] = val;
+    // Azonnali mentés 1 másodperces késleltetéssel
+    clearTimeout(arazasSaveTimeout);
+    arazasSaveTimeout = setTimeout(async function(){
+      showSyncStatus('Mentés...', false);
+      try{
+        const data = await postToSheet({termekek: products, berlok: berlok, eladasok: eladas});
+        if(data.error) throw new Error(data.error);
+        showSyncStatus('Mentve ✓', false);
+      } catch(err){
+        showSyncStatus('Mentési hiba! Próbáld újra.', true);
+      }
+    }, 1000);
+  }
 }
 
 function fillKat(kat){
