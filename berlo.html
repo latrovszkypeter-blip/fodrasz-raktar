@@ -330,6 +330,8 @@ async function loadData(){
     }));
     nextEid = eladas.length ? Math.max(...eladas.map(e=>e.id))+1 : 1;
     renderBerloList();
+    // Ha már be van jelentkezve, frissítjük a kategória listát
+    if(bejelentkezettBerlo) bUpdateKatLista();
   } catch(err){
     console.error(err);
     document.getElementById('berlo-select-list').innerHTML='<div class="empty-state">Kapcsolódási hiba. Ellenőrizd az internetkapcsolatot!</div>';
