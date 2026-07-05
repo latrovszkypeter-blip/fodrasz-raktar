@@ -886,9 +886,9 @@ function renderKeszlet(){
 
   const mobile = isMobile();
   const cardsDiv = document.getElementById('keszlet-cards');
-  const tableCard = document.querySelector('#tab-keszlet .table-card');
+  const katGroups = document.getElementById('kat-groups');
   if(cardsDiv) cardsDiv.style.display = mobile ? 'block' : 'none';
-  if(tableCard) tableCard.style.display = mobile ? 'none' : '';
+  if(katGroups) katGroups.style.display = mobile ? 'none' : 'block';
 
   if(mobile && cardsDiv){
     if(!list.length){ cardsDiv.innerHTML='<div class="empty-state">Nincs találat</div>'; return; }
