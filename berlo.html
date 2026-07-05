@@ -490,8 +490,6 @@ function bSetTipus(t){
 }
 
 function bInitEladas(){
-  document.getElementById('b-kat').value = '';
-  bUpdateTermekek();
   const now = new Date();
   const localStr = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+'T'+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   document.getElementById('b-datum').value = localStr;
@@ -499,8 +497,9 @@ function bInitEladas(){
   document.getElementById('b-megjegyzes').value = '';
   document.getElementById('b-ar').value = 0;
   document.getElementById('b-ar-hint').textContent = '';
+  document.getElementById('b-kat').value = '';
   currentTipus = 'vendeg';
-  bSetTipus('vendeg');
+  bSetTipus('vendeg'); // Ez meghívja bUpdateKatLista-t és bUpdateTermekek-et
 }
 
 function bUpdateKatLista(){
