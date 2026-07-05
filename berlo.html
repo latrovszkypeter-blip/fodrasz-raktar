@@ -258,10 +258,24 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
           <div><div class="calc-label">Jutalékod (18%)</div><div class="calc-value profit-pos" id="bc-jutalek">0 Ft</div></div>
         </div>
 
-        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;" onclick="bRogzit()">
-          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-          Rögzítés
+        <button class="btn" style="width:100%;justify-content:center;padding:12px;margin-top:4px;" onclick="bKosarba()">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Kosárba
         </button>
+
+        <!-- KOSÁR -->
+        <div id="b-kosar-wrap" style="display:none;margin-top:14px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span>🛒 Kosár</span>
+            <button class="btn btn-sm" onclick="bKosar=[];bRenderKosar()" style="font-size:12px;">Ürítés</button>
+          </div>
+          <div id="b-kosar-lista"></div>
+          <div id="b-kosar-osszeg" style="background:var(--surface2);border-radius:var(--radius);padding:10px 14px;margin-top:8px;font-size:12px;"></div>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;margin-top:10px;" onclick="bRogzit()">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+            Összes rögzítése
+          </button>
+        </div>
       </div>
     </div>
 
@@ -584,29 +598,88 @@ function bUpdateCalc(){
   }
 }
 
-function bRogzit(){
+var bKosar = [];
+
+function bKosarba(){
   const termekId = parseInt(document.getElementById('b-termek').value);
   const db = parseInt(document.getElementById('b-db').value)||0;
   const ar = parseInt(document.getElementById('b-ar').value)||0;
-  const datumRaw = document.getElementById('b-datum').value;
-  const datum = datumRaw ? datumRaw.replace('T',' ') : '';
   const megjegyzes = document.getElementById('b-megjegyzes').value;
   if(!termekId){ alert('Válassz terméket!'); return; }
   if(db<=0){ alert('Adj meg mennyiséget!'); return; }
-  const p = products.find(x=>x.id===termekId);
-  if(p.keszlet<db){ alert('Nincs elegendő készlet! ('+p.keszlet+' db van)'); return; }
-  p.keszlet -= db;
-  const bevetel = db*ar;
-  const jutalekOsszeg = currentTipus==='vendeg' ? Math.round(bevetel*JUTALEK_PCT/100) : 0;
-  eladas.push({
-    id: nextEid++,
-    berloId: bejelentkezettBerlo.id,
-    termekId, db, ar, besar: p.besar, datum, megjegyzes,
-    tipus: currentTipus,
-    jutalekOsszeg,
-    jutalekStatusz: currentTipus==='vendeg' ? 'fuggoben' : '',
-    rogzitette: 'berlo'
+  const p = products.find(function(x){return x.id===termekId;});
+  if(!p) return;
+  const kosar_db = bKosar.filter(function(k){return k.termekId===termekId;}).reduce(function(s,k){return s+k.db;},0);
+  if(p.keszlet < db + kosar_db){ alert('Nincs elegendő készlet! ('+p.keszlet+' db van, kosárban már: '+kosar_db+' db)'); return; }
+  bKosar.push({termekId, db, ar, besar: p.besar, megjegyzes, tipus: currentTipus, p});
+  bRenderKosar();
+  document.getElementById('b-termek').value = '';
+  document.getElementById('b-kat').value = '';
+  document.getElementById('b-db').value = 1;
+  document.getElementById('b-ar').value = 0;
+  document.getElementById('b-ar-hint').textContent = '';
+  document.getElementById('b-megjegyzes').value = '';
+  bUpdateCalc();
+}
+
+function bRenderKosar(){
+  const wrap = document.getElementById('b-kosar-wrap');
+  const lista = document.getElementById('b-kosar-lista');
+  if(!bKosar.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  lista.innerHTML = bKosar.map(function(k,i){
+    const bev = k.db*k.ar;
+    const isVendeg = k.tipus==='vendeg';
+    const jutalek = isVendeg ? Math.round(bev*JUTALEK_PCT/100) : 0;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;font-size:13px;">' +
+      '<div>' +
+        '<div style="font-weight:600;">'+k.p.nev+'</div>' +
+        '<div style="color:var(--text3);font-size:12px;">'+k.db+' db × '+fmt(k.ar)+' = <strong>'+fmt(bev)+'</strong>'+(isVendeg?' · Jutalék: '+fmt(jutalek):'')+'</div>' +
+      '</div>' +
+      '<button class="btn btn-sm btn-danger" onclick="bKosarTorles('+i+')">×</button>' +
+    '</div>';
+  }).join('');
+  const totBev = bKosar.reduce(function(s,k){return s+k.db*k.ar;},0);
+  const totJutalek = bKosar.reduce(function(s,k){return k.tipus==='vendeg'?s+Math.round(k.db*k.ar*JUTALEK_PCT/100):s;},0);
+  document.getElementById('b-kosar-osszeg').innerHTML =
+    '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">' +
+      '<span>'+bKosar.length+' tétel · Összesen: <strong>'+fmt(totBev)+'</strong></span>' +
+      (totJutalek>0?'<span class="profit-pos">Jutalékod: <strong>'+fmt(totJutalek)+'</strong></span>':'') +
+    '</div>';
+}
+
+function bKosarTorles(i){
+  bKosar.splice(i,1);
+  bRenderKosar();
+}
+
+function bRogzit(){
+  const datumRaw = document.getElementById('b-datum').value;
+  const datum = datumRaw ? datumRaw.replace('T',' ') : '';
+  if(!bKosar.length){ alert('A kosár üres! Adj hozzá terméket.'); return; }
+  var ok = true;
+  bKosar.forEach(function(k){
+    const p = products.find(function(x){return x.id===k.termekId;});
+    if(p && p.keszlet < k.db){ alert('Nincs elegendő készlet: '+p.nev); ok=false; }
   });
+  if(!ok) return;
+  bKosar.forEach(function(k){
+    const p = products.find(function(x){return x.id===k.termekId;});
+    if(p) p.keszlet -= k.db;
+    const bevetel = k.db*k.ar;
+    const jutalekOsszeg = k.tipus==='vendeg' ? Math.round(bevetel*JUTALEK_PCT/100) : 0;
+    eladas.push({
+      id: nextEid++,
+      berloId: bejelentkezettBerlo.id,
+      termekId: k.termekId, db: k.db, ar: k.ar, besar: k.besar,
+      datum: datum, megjegyzes: k.megjegyzes,
+      tipus: k.tipus, jutalekOsszeg,
+      jutalekStatusz: k.tipus==='vendeg' ? 'fuggoben' : '',
+      rogzitette: 'berlo'
+    });
+  });
+  bKosar = [];
+  bRenderKosar();
   saveData();
   alert('Rögzítve!');
   bInitEladas();
