@@ -1342,7 +1342,7 @@ function renderJutalek(){
       <td class="td-mono">${fmt(bev)}</td>
       <td class="td-mono" style="font-weight:600;color:var(--accent2)">${fmt(e.jutalekOsszeg||0)}</td>
       <td>
-        <select class="status-select ${statusz}" onchange="setJutalekStatusz(${e.id}, this.value)">
+        <select class="status-select" onchange="setJutalekStatusz(${e.id}, this.value)" style="${statusz==='fuggoben'?'background:#fee2e2;color:#991b1b;border-color:#fca5a5;':statusz==='kifizetve'?'background:#e8f2ec;color:#2d5a3d;border-color:#c6e0cc;':'background:#e8f2ec;color:#2d5a3d;border-color:#c6e0cc;'}font-weight:500;">
           <option value="fuggoben" ${statusz==='fuggoben'?'selected':''}>⏳ Függőben</option>
           <option value="kifizetve" ${statusz==='kifizetve'?'selected':''}>✓ Kifizetve</option>
           <option value="berletbol" ${statusz==='berletbol'?'selected':''}>✓ Bérletiből levonva</option>
@@ -1354,13 +1354,6 @@ function setJutalekStatusz(eladasId, ujStatusz){
   const e=eladas.find(x=>x.id===eladasId);
   if(!e)return;
   e.jutalekStatusz=ujStatusz;
-  // Frissítjük a select színét
-  const selects = document.querySelectorAll('.status-select');
-  selects.forEach(sel=>{
-    if(sel.onchange && sel.onchange.toString().includes(eladasId)){
-      sel.className='status-select '+ujStatusz;
-    }
-  });
   saveToSheet();
   renderJutalek();
 }
