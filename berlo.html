@@ -264,7 +264,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
         </div>
         <div class="calc-box" id="b-calc-vendeg" style="display:none;grid-template-columns:1fr 1fr;">
           <div><div class="calc-label">Vendég fizet</div><div class="calc-value" id="bc-vendeg-ar">0 Ft</div></div>
-          <div><div class="calc-label">Jutalékod (15%)</div><div class="calc-value profit-pos" id="bc-jutalek">0 Ft</div></div>
+          <div><div class="calc-label">Jutalékod (18%)</div><div class="calc-value profit-pos" id="bc-jutalek">0 Ft</div></div>
         </div>
 
         <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;" onclick="bRogzit()">
@@ -487,7 +487,7 @@ function bSetTipus(t){
   } else {
     vBtn.style.background='var(--accent)';vBtn.style.color='white';vBtn.style.borderColor='var(--accent)';
     bBtn.style.background='';bBtn.style.color='';bBtn.style.borderColor='';
-    document.getElementById('b-tipus-hint').textContent='Te adtad el a terméket egy vendégnek. 15% jutalékot kapsz az eladási árból.';
+    document.getElementById('b-tipus-hint').textContent='Te adtad el a terméket egy vendégnek. 18% jutalékot kapsz az eladási árból.';
     document.getElementById('b-calc-berlo').style.display='none';
     document.getElementById('b-calc-vendeg').style.display='grid';
   }

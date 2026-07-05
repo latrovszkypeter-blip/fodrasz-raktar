@@ -452,7 +452,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     <div class="calc-box" id="calc-box-vendeg" style="display:none;grid-template-columns:1fr 1fr 1fr 1fr;">
       <div><div class="calc-label">Bevétel</div><div class="calc-value" id="calc-v-bevetel">0 Ft</div></div>
       <div><div class="calc-label">Anyagköltség</div><div class="calc-value" id="calc-v-koltseg">0 Ft</div></div>
-      <div><div class="calc-label">Bérlő jutaléka (15%)</div><div class="calc-value" id="calc-v-jutalek" style="color:var(--accent2)">0 Ft</div></div>
+      <div><div class="calc-label">Bérlő jutaléka (18%)</div><div class="calc-value" id="calc-v-jutalek" style="color:var(--accent2)">0 Ft</div></div>
       <div><div class="calc-label">Te kerested</div><div class="calc-value" id="calc-v-haszon">0 Ft</div></div>
     </div>
     <button class="btn btn-primary" style="width:100%;margin-top:16px;justify-content:center;" onclick="rogzitEladas()">
@@ -528,7 +528,7 @@ tbody tr:hover td { filter: brightness(0.97); }
 
 <!-- JUTALÉKOK -->
 <div id="tab-jutalek" class="page">
-  <div class="section-header"><div class="section-title">Bérlői jutalékok (vendégeladás után, 15%)</div></div>
+  <div class="section-header"><div class="section-title">Bérlői jutalékok (vendégeladás után, 18%)</div></div>
   <div class="stats" id="jutalek-stats" style="grid-template-columns:repeat(3,1fr);"></div>
   <div class="toolbar">
     <select id="j-berlo" onchange="renderJutalek()"><option value="">Minden bérlő</option></select>
@@ -1013,7 +1013,7 @@ function setEladasTipus(t){
   document.getElementById('e-berlo-label').textContent = t==='berlo' ? 'Bérlő' : 'Melyik bérlő adta el?';
   document.getElementById('tipus-hint').textContent = t==='berlo'
     ? 'A bérlő megveszi tőled a terméket – ez kerül rá a havi számlájára.'
-    : 'A bérlő eladta a terméket egy vendégnek a te készletedből. A teljes bevétel a tiéd, de a bérlő 10% jutalékot kap.';
+    : 'A bérlő eladta a terméket egy vendégnek a te készletedből. A teljes bevétel a tiéd, de a bérlő 18% jutalékot kap.';
   document.getElementById('calc-box-berlo').style.display = t==='berlo' ? 'grid' : 'none';
   document.getElementById('calc-box-vendeg').style.display = t==='vendeg' ? 'grid' : 'none';
   updateEladasKatLista();
