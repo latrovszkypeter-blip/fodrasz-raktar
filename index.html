@@ -687,16 +687,28 @@ function closeImport(){
   document.getElementById('importModal').style.display='none';
 }
 
-function doImport(){
+async function doImport(){
   const ujak = IMPORT_TERMEKEK.filter(t=>!products.some(p=>p.nev.toLowerCase()===t.nev.toLowerCase()));
-  if(!ujak.length){alert('Nincs importálható termék – mind már szerepel a listában!');closeImport();return;}
+  if(!ujak.length){alert('Nincs importálható termék!');closeImport();return;}
+  
   ujak.forEach(t=>{
     products.push({id:nextPid++, nev:t.nev, kat:t.kat, keszlet:0, min:1, besar:0, fogyasztoiar:0, elar:0});
   });
+  
   closeImport();
   renderKeszlet();
-  saveToSheet();
-  alert(ujak.length+' termék sikeresen importálva! Az árakat és készletet most add meg egyenként.');
+  
+  // Mentés - csak a termékeket küldjük el külön
+  showSyncStatus('Importálás mentése...', false);
+  try{
+    const data = await postToSheet({termekek: products, berlok: berlok, eladasok: eladas});
+    if(data.error) throw new Error(data.error);
+    showSyncStatus('Mentve ✓ – '+ujak.length+' termék!', false);
+    alert(ujak.length+' termék importálva! Az árakat és készletet add meg egyenként a szerkesztés gombbal.');
+  } catch(err){
+    showSyncStatus('Mentési hiba – próbáld újra a Frissítés gombbal!', true);
+    console.error(err);
+  }
 }
 
 function fixDatum(d){
@@ -768,6 +780,26 @@ async function saveBerlokToSheet(){
   }
 }
 
+async function postToSheet(payload){
+  const jsonStr = JSON.stringify(payload);
+  // Ha kis adat, GET-tel küldjük (gyorsabb)
+  const encoded = encodeURIComponent(jsonStr);
+  if(encoded.length < 6000){
+    const res = await fetch(SCRIPT_URL + '?action=saveAll&data=' + encoded);
+    return await res.json();
+  }
+  // Nagy adatnál POST-tal küldjük
+  const params = new URLSearchParams();
+  params.append('action', 'saveAll');
+  params.append('data', jsonStr);
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: params.toString()
+  });
+  return await res.json();
+}
+
 async function saveToSheet(){
   if(isLoading) return;
   clearTimeout(saveTimeout);
@@ -775,10 +807,7 @@ async function saveToSheet(){
     try{
       showSyncStatus('Mentés...', false);
       const payload = { termekek: products, berlok: berlok, eladasok: eladas };
-      const dataStr = encodeURIComponent(JSON.stringify(payload));
-      const url = SCRIPT_URL + '?action=saveAll&data=' + dataStr;
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await postToSheet(payload);
       if(data.error) throw new Error(data.error);
       showSyncStatus('Mentve ✓', false);
     }catch(err){
