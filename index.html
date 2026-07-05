@@ -737,9 +737,9 @@ function fixDatum(d){
   return s;
 }
 
-async function loadFromSheet(){
+async function loadFromSheet(silent){
   isLoading=false;
-  renderKeszlet();
+  if(!silent) renderKeszlet();
   try{
     showSyncStatus('Betöltés...', false);
     const controller = new AbortController();
@@ -766,7 +766,8 @@ async function loadFromSheet(){
     }));
     calcNextIds();
     showSyncStatus('Betöltve ✓', false);
-    renderKeszlet();
+    if(!silent) renderKeszlet();
+    else renderStats(); // csak a statisztikákat frissítjük
   }catch(err){
     if(err.name==='AbortError'){
       showSyncStatus('Időtúllépés – nincs internetkapcsolat?', true);
@@ -1515,23 +1516,23 @@ function setJutalekStatusz(eladasId, ujStatusz){
 // Automatikus frissítés ha az oldal előtérbe kerül
 document.addEventListener('visibilitychange', function(){
   if(document.visibilityState === 'visible'){
-    loadFromSheet();
+    loadFromSheet(true);
   }
 });
 
 // Automatikus frissítés 30 másodpercenként
 setInterval(function(){
   if(document.visibilityState === 'visible' && !isLoading){
-    loadFromSheet();
+    loadFromSheet(true);
   }
 }, 30000);
 
 // Focus esemény (böngésző fülre visszaváltáskor)
 window.addEventListener('focus', function(){
-  if(!isLoading) loadFromSheet();
+  if(!isLoading) loadFromSheet(true);
 });
 
-loadFromSheet();
+loadFromSheet(false);
 </script>
 
 <!-- Modal: import -->
