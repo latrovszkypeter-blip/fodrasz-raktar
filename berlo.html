@@ -212,17 +212,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
         <div class="form-row">
           <label>Kategória</label>
-          <select id="b-kat" onchange="bUpdateTermekek()">
+          <select id="b-kat" onchange="bUpdateKatLista()">
             <option value="">-- Minden kategória --</option>
-            <option>COLOR GEL OILS</option><option>SHADES EQ</option><option>SHADES ALK</option>
-            <option>OXYDANTS</option><option>LIGHTENERS</option><option>HAJÁPOLÓK SZALONHASZNÁLATRA</option>
-            <option>ACIDIC BONDING CONCENTRATE</option><option>ACIDIC BONDING CONCENTRATE CURLS</option>
-            <option>ACIDIC COLOR GLOSS</option><option>ACIDIC GROW FULL SYSTEM</option>
-            <option>ALL SOFT</option><option>ALL SOFT MEGA CURLS</option><option>AMINO MINT</option>
-            <option>BLOND</option><option>CERAFILL</option><option>EXTREME</option>
-            <option>FRIZZ DISMISS</option><option>HIGH BRIGHT</option><option>VOLUME INJECTION</option>
-            <option>ONE UNITED</option><option>SCALP RELIEF</option><option>EXTREME BLEACH RECOVERY</option>
-            <option>Refill</option><option>REDKEN BREWS</option><option>STYLING</option>
           </select>
         </div>
 
@@ -240,7 +231,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
           </div>
           <div class="form-row">
             <label>Dátum</label>
-            <input type="date" id="b-datum" />
+            <input type="datetime-local" id="b-datum" />
           </div>
         </div>
 
@@ -498,7 +489,9 @@ function bSetTipus(t){
 function bInitEladas(){
   document.getElementById('b-kat').value = '';
   bUpdateTermekek();
-  document.getElementById('b-datum').value = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const localStr = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+'T'+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('b-datum').value = localStr;
   document.getElementById('b-db').value = 1;
   document.getElementById('b-megjegyzes').value = '';
   document.getElementById('b-ar').value = 0;
@@ -510,7 +503,13 @@ function bInitEladas(){
 function bUpdateKatLista(){
   const kat = document.getElementById('b-kat');
   const curVal = kat.value;
-  const allKats = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA','ACIDIC BONDING CONCENTRATE','ACIDIC BONDING CONCENTRATE CURLS','ACIDIC COLOR GLOSS','ACIDIC GROW FULL SYSTEM','ALL SOFT','ALL SOFT MEGA CURLS','AMINO MINT','BLOND','CERAFILL','EXTREME','FRIZZ DISMISS','HIGH BRIGHT','VOLUME INJECTION','ONE UNITED','SCALP RELIEF','EXTREME BLEACH RECOVERY','Refill','REDKEN BREWS','STYLING'];
+  const KAT_ORDER = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA','ACIDIC BONDING CONCENTRATE','ACIDIC BONDING CONCENTRATE CURLS','ACIDIC COLOR GLOSS','ACIDIC GROW FULL SYSTEM','ALL SOFT','ALL SOFT MEGA CURLS','AMINO MINT','BLOND','CERAFILL','EXTREME','FRIZZ DISMISS','HIGH BRIGHT','VOLUME INJECTION','ONE UNITED','SCALP RELIEF','AMINEXIL','Refill','REDKEN BREWS','STYLING'];
+  const allKats = [...new Set(products.map(p=>p.kat))].sort((a,b)=>{
+    const ai=KAT_ORDER.indexOf(a), bi=KAT_ORDER.indexOf(b);
+    if(ai===-1&&bi===-1) return a.localeCompare(b);
+    if(ai===-1) return 1; if(bi===-1) return -1;
+    return ai-bi;
+  });
   const visibleKats = currentTipus==='berlo' ? allKats : allKats.filter(k=>!CSAK_BERLOI_KAT.includes(k));
   kat.innerHTML = '<option value="">-- Minden kategória --</option>'+visibleKats.map(k=>`<option value="${k}">${k}</option>`).join('');
   if(visibleKats.includes(curVal)) kat.value=curVal; else kat.value='';
@@ -588,7 +587,8 @@ function bRogzit(){
   const termekId = parseInt(document.getElementById('b-termek').value);
   const db = parseInt(document.getElementById('b-db').value)||0;
   const ar = parseInt(document.getElementById('b-ar').value)||0;
-  const datum = document.getElementById('b-datum').value;
+  const datumRaw = document.getElementById('b-datum').value;
+  const datum = datumRaw ? datumRaw.replace('T',' ') : '';
   const megjegyzes = document.getElementById('b-megjegyzes').value;
   if(!termekId){ alert('Válassz terméket!'); return; }
   if(db<=0){ alert('Adj meg mennyiséget!'); return; }
