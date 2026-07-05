@@ -763,8 +763,8 @@ async function loadFromSheet(silent){
       min:Number(p.min)||0, besar:Number(p.besar)||0, elar:Number(p.elar)||0, fogyasztoiar:Number(p.fogyasztoiar)||0
     }));
     berlok = (data.berlok||[]).map(b=>({
-      id:Number(b.id), nev:b.nev, adoszam:b.adoszam||'', telefon:b.telefon||'', pin:b.pin||''
-    }));
+      id:Number(b.id), nev:String(b.nev||''), adoszam:String(b.adoszam||''), telefon:String(b.telefon||''), pin:String(b.pin||'').trim()
+    })).filter(b=>b.id && b.nev);
     eladas = (data.eladasok||[]).map(e=>({
       id:Number(e.id), berloId:Number(e.berloId), termekId:Number(e.termekId),
       db:Number(e.db)||0, ar:Number(e.ar)||0, besar:Number(e.besar)||0,
@@ -776,8 +776,16 @@ async function loadFromSheet(silent){
     }));
     calcNextIds();
     showSyncStatus('Betöltve ✓', false);
+    // Mindig frissítjük az aktív fület
+    const activeTab = document.querySelector('.tab.active');
+    const tabText = activeTab ? activeTab.textContent.trim() : '';
     if(!silent) renderKeszlet();
-    else renderStats(); // csak a statisztikákat frissítjük
+    else renderStats();
+    if(tabText.includes('Bérlők')) renderBerlok();
+    else if(tabText.includes('Jutalék')) renderJutalek();
+    else if(tabText.includes('Napló')) renderNaplo();
+    else if(tabText.includes('Számlázás')) renderSzamla();
+    else if(tabText.includes('Árazás')) renderArazas();
   }catch(err){
     if(err.name==='AbortError'){
       showSyncStatus('Időtúllépés – nincs internetkapcsolat?', true);
