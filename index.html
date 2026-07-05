@@ -151,7 +151,10 @@ tbody tr:hover td { filter: brightness(0.97); }
 .type-pill.berlo { background: var(--purple-light); color: var(--purple); }
 .type-pill.vendeg { background: var(--accent2-light); color: var(--accent2); }
 .btn.type-active { background: var(--accent); color: white; border-color: var(--accent); }
-.status-select { padding: 5px 8px; font-size: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; }
+.status-select { padding: 5px 8px; font-size: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-weight: 500; }
+.status-select.fuggoben { background: var(--danger-light); color: var(--danger); border-color: #fca5a5; }
+.status-select.kifizetve { background: var(--accent-light); color: var(--accent); border-color: #c6e0cc; }
+.status-select.berletbol { background: var(--accent-light); color: var(--accent); border-color: #c6e0cc; }
 
 /* SECTION HEADER */
 .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
@@ -1339,10 +1342,10 @@ function renderJutalek(){
       <td class="td-mono">${fmt(bev)}</td>
       <td class="td-mono" style="font-weight:600;color:var(--accent2)">${fmt(e.jutalekOsszeg||0)}</td>
       <td>
-        <select class="status-select" onchange="setJutalekStatusz(${e.id}, this.value)">
-          <option value="fuggoben" ${statusz==='fuggoben'?'selected':''}>Függőben</option>
-          <option value="kifizetve" ${statusz==='kifizetve'?'selected':''}>Kifizetve</option>
-          <option value="berletbol" ${statusz==='berletbol'?'selected':''}>Bérletiből levonva</option>
+        <select class="status-select ${statusz}" onchange="setJutalekStatusz(${e.id}, this.value)">
+          <option value="fuggoben" ${statusz==='fuggoben'?'selected':''}>⏳ Függőben</option>
+          <option value="kifizetve" ${statusz==='kifizetve'?'selected':''}>✓ Kifizetve</option>
+          <option value="berletbol" ${statusz==='berletbol'?'selected':''}>✓ Bérletiből levonva</option>
         </select>
       </td>
     </tr>`;}).join('');
@@ -1351,6 +1354,13 @@ function setJutalekStatusz(eladasId, ujStatusz){
   const e=eladas.find(x=>x.id===eladasId);
   if(!e)return;
   e.jutalekStatusz=ujStatusz;
+  // Frissítjük a select színét
+  const selects = document.querySelectorAll('.status-select');
+  selects.forEach(sel=>{
+    if(sel.onchange && sel.onchange.toString().includes(eladasId)){
+      sel.className='status-select '+ujStatusz;
+    }
+  });
   saveToSheet();
   renderJutalek();
 }
