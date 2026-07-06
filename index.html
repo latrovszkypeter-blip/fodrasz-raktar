@@ -1001,7 +1001,6 @@ function renderKeszlet(){
     const berloi=p.fogyasztoiar?Math.round(p.fogyasztoiar*0.9):0;
     return`<tr class="${rowCls}">
       <td class="td-name" title="${p.nev}">${p.nev}</td>
-      <td>${p.kat}</td>
       <td class="td-mono" style="font-weight:600">${p.keszlet} db</td>
       <td class="td-mono">${fmt(p.besar)}</td>
       <td class="td-mono">${p.fogyasztoiar?fmt(p.fogyasztoiar):'–'}</td>
@@ -1033,17 +1032,17 @@ function renderKeszlet(){
       </div>
       <div class="kat-group-body">
         <div class="table-wrap">
-          <table>
+          <table style="table-layout:auto;">
             <thead><tr>
-              <th style="width:28%">Termék neve</th>
-              <th style="width:9%">Készlet</th>
-              <th style="width:13%">Besz. ár</th>
-              <th style="width:13%">Br. fodrász ár</th>
-              <th style="width:11%">Vendég ár</th>
-              <th style="width:11%">Bérlői ár</th>
-              <th style="width:8%">Margin</th>
-              <th style="width:7%">Állapot</th>
-              <th style="width:5%"></th>
+              <th>Termék neve</th>
+              <th>Készlet</th>
+              <th>Besz. ár</th>
+              <th>Br. ár</th>
+              <th>Vendég ár</th>
+              <th>Bérlői ár</th>
+              <th>Margin</th>
+              <th>Állapot</th>
+              <th></th>
             </tr></thead>
             <tbody>${rowsHtml}</tbody>
           </table>
