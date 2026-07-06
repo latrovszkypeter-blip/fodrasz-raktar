@@ -799,7 +799,7 @@ async function loadFromSheet(silent){
     else if(tabText.includes('Jutalék')) renderJutalek();
     else if(tabText.includes('Napló')) renderNaplo();
     else if(tabText.includes('Számlázás')) renderSzamla();
-    else if(tabText.includes('Árazás')) renderArazas();
+    // Árazást NEM frissítjük automatikusan - megőrizzük a nyitott kategóriákat
   }catch(err){
     if(err.name==='AbortError'){
       showSyncStatus('Időtúllépés – nincs internetkapcsolat?', true);
