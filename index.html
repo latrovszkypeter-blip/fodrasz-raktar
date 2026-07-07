@@ -1730,12 +1730,18 @@ function renderRendeles(){
     const nyitva = idx===0;
     const csId = 'rcs'+idx;
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">
-      <div onclick="toggleRcs('${csId}')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;font-weight:600;font-size:14px;background:var(--surface2);">
-        <span>${cs.nap} · ${cs.berloNev}</span>
-        <span style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:12px;font-weight:400;color:var(--text3);">${cs.tetelek.length} tétel</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--surface2);">
+        <div onclick="toggleRcs('${csId}')" style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;font-size:14px;flex:1;">
           <span id="${csId}-arrow" style="font-size:10px;color:var(--text3);">${nyitva?'▼':'▶'}</span>
-        </span>
+          <span>${cs.nap} · ${cs.berloNev}</span>
+          <span style="font-size:12px;font-weight:400;color:var(--text3);">${cs.tetelek.length} tétel</span>
+        </div>
+        <select class="status-select" style="font-size:12px;font-weight:500;" onchange="setRendelesCsoportStatusz('${key}',this.value,${idx})">
+          <option value="">Összes státusz...</option>
+          <option value="fuggoben">⏳ Mind: Függőben</option>
+          <option value="megrendelve">📦 Mind: Megrendelve</option>
+          <option value="megerkezett">✅ Mind: Megérkezett</option>
+        </select>
       </div>
       <div id="${csId}" style="display:${nyitva?'block':'none'};">
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
@@ -1773,6 +1779,17 @@ function renderRendeles(){
       </div>
     </div>`;
   }).join('');
+}
+
+function setRendelesCsoportStatusz(key, statusz, idx){
+  if(!statusz) return;
+  const bId = key.split('__')[1];
+  const nap = key.split('__')[0];
+  rendelesek.forEach(r=>{
+    if(String(r.berloId)===String(bId) && r.datum.slice(0,10)===nap) r.statusz=statusz;
+  });
+  saveToSheet();
+  renderRendeles();
 }
 
 function toggleRcs(id){
