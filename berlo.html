@@ -191,6 +191,10 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="width:15px;height:15px;"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
         Napló
       </button>
+      <button class="tab" onclick="showTab('rendeles',this)">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="width:15px;height:15px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
+        Rendelés
+      </button>
       <button class="tab" onclick="showTab('jutalek',this)">
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="width:15px;height:15px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         Jutalékom
@@ -296,6 +300,40 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <div id="b-naplo-osszeg" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-top:4px;font-size:13px;"></div>
     </div>
 
+    <!-- RENDELÉS -->
+    <div id="tab-rendeles" class="page">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">Ha hiányzó terméket szeretnél rendelni, add le az igényt itt. Az admin látja és összeállítja a rendelést.</div>
+      <div class="form-card" style="margin-bottom:14px;">
+        <div class="form-row"><label>Kategória</label>
+          <select id="br-kat" onchange="brUpdateTermekek()" style="width:100%;padding:10px 12px;font-size:14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;">
+            <option value="">-- Minden kategória --</option>
+          </select>
+        </div>
+        <div class="form-row" style="margin-top:12px;"><label>Termék (ha szerepel a listában)</label>
+          <select id="br-termek" style="width:100%;padding:10px 12px;font-size:14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;">
+            <option value="">-- Válassz vagy írj le alul --</option>
+          </select>
+        </div>
+        <div class="form-row" style="margin-top:12px;"><label>Vagy szabad szöveg (ha nincs a listában)</label>
+          <input type="text" id="br-szabadszoveg" placeholder="pl. Redken All Soft 1L speciális" style="width:100%;padding:10px 12px;font-size:14px;border-radius:var(--radius);border:1px solid var(--border);font-family:'DM Sans',sans-serif;" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+          <div class="form-row"><label>Mennyiség (db)</label>
+            <input type="number" id="br-db" min="1" value="1" style="width:100%;padding:10px 12px;font-size:14px;border-radius:var(--radius);border:1px solid var(--border);font-family:'DM Sans',sans-serif;" />
+          </div>
+          <div class="form-row"><label>Megjegyzés</label>
+            <input type="text" id="br-megjegyzes" placeholder="opcionális" style="width:100%;padding:10px 12px;font-size:14px;border-radius:var(--radius);border:1px solid var(--border);font-family:'DM Sans',sans-serif;" />
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;margin-top:16px;" onclick="brLeadas()">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+          Rendelési igény leadása
+        </button>
+      </div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Leadott igényeim</div>
+      <div id="br-sajat-lista"></div>
+    </div>
+
     <!-- JUTALÉK -->
     <div id="tab-jutalek" class="page">
       <div class="jutalek-osszesito" id="b-jutalek-stat"></div>
@@ -309,8 +347,9 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQ8_L2omnzlmzxmt3cF
 const JUTALEK_PCT = 18;
 const CSAK_BERLOI_KAT = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA'];
 
-let products = [], berlok = [], eladas = [];
+let products = [], berlok = [], eladas = [], rendelesek = [];
 let bejelentkezettBerlo = null;
+let nextRid = 1;
 let valasztottBerloId = null;
 let pinBuffer = '';
 let currentTipus = 'berlo';
@@ -346,6 +385,12 @@ async function loadData(){
       jutalekStatusz:e.jutalekStatusz||''
     }));
     nextEid = eladas.length ? Math.max(...eladas.map(e=>e.id))+1 : 1;
+    rendelesek = (data.rendelesek||[]).map(r=>({
+      id:Number(r.id), berloId:Number(r.berloId), termekId:Number(r.termekId)||0,
+      termekNev:r.termekNev||'', db:Number(r.db)||0, megjegyzes:r.megjegyzes||'',
+      datum:r.datum||'', statusz:r.statusz||'fuggoben'
+    }));
+    nextRid = rendelesek.length ? Math.max(...rendelesek.map(r=>r.id))+1 : 1;
     renderBerloList();
     // Ha már be van jelentkezve, frissítjük a kategória listát
     if(bejelentkezettBerlo) bUpdateKatLista();
@@ -358,7 +403,7 @@ async function loadData(){
 async function saveData(){
   try{
     showSync('Mentés...', false);
-    const payload = { termekek: products, berlok: berlok, eladasok: eladas };
+    const payload = { termekek: products, berlok: berlok, eladasok: eladas, rendelesek: rendelesek };
     const formData = new FormData();
     formData.append('action', 'saveAll');
     formData.append('data', JSON.stringify(payload));
@@ -481,6 +526,7 @@ function showTab(t, el){
   el.classList.add('active');
   if(t==='naplo') bRenderNaplo();
   if(t==='jutalek') bRenderJutalek();
+  if(t==='rendeles') brInit();
 }
 
 // ELADÁS FORM
@@ -750,6 +796,72 @@ function bRenderNaplo(){
 }
 
 // JUTALÉK
+
+function brInit(){
+  // Kategória lista feltöltése
+  const KAT_ORDER = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA','ACIDIC BONDING CONCENTRATE','ACIDIC BONDING CONCENTRATE CURLS','ACIDIC COLOR GLOSS','ACIDIC GROW FULL SYSTEM','ALL SOFT','ALL SOFT MEGA CURLS','AMINO MINT','BLOND','CERAFILL','EXTREME','FRIZZ DISMISS','HIGH BRIGHT','VOLUME INJECTION','ONE UNITED','SCALP RELIEF','AMINEXIL','Refill','REDKEN BREWS','STYLING'];
+  const allKats = [...new Set(products.map(p=>p.kat))].sort(function(a,b){
+    const ai=KAT_ORDER.indexOf(a), bi=KAT_ORDER.indexOf(b);
+    if(ai===-1&&bi===-1) return a.localeCompare(b);
+    if(ai===-1) return 1; if(bi===-1) return -1;
+    return ai-bi;
+  });
+  const katSel = document.getElementById('br-kat');
+  katSel.innerHTML = '<option value="">-- Minden kategória --</option>'+allKats.map(k=>`<option value="${k}">${k}</option>`).join('');
+  brUpdateTermekek();
+  brRenderSajat();
+}
+
+function brUpdateTermekek(){
+  const kat = document.getElementById('br-kat').value;
+  const filtered = products.filter(function(p){ return !kat || p.kat===kat; });
+  document.getElementById('br-termek').innerHTML = '<option value="">-- Válassz vagy írj le alul --</option>'+
+    filtered.map(function(p){ return `<option value="${p.id}">${p.nev}</option>`; }).join('');
+}
+
+function brLeadas(){
+  const termekId = parseInt(document.getElementById('br-termek').value)||0;
+  const szabadszoveg = document.getElementById('br-szabadszoveg').value.trim();
+  const db = parseInt(document.getElementById('br-db').value)||1;
+  const megjegyzes = document.getElementById('br-megjegyzes').value.trim();
+  if(!termekId && !szabadszoveg){ alert('Válassz terméket vagy írj le egyet!'); return; }
+  const p = termekId ? products.find(function(x){return x.id===termekId;}) : null;
+  const termekNev = p ? p.nev : szabadszoveg;
+  const now = new Date();
+  const datum = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  rendelesek.push({
+    id: nextRid++, berloId: bejelentkezettBerlo.id,
+    termekId, termekNev, db, megjegyzes, datum, statusz: 'fuggoben'
+  });
+  saveData();
+  alert('Rendelési igény leadva!');
+  document.getElementById('br-termek').value = '';
+  document.getElementById('br-szabadszoveg').value = '';
+  document.getElementById('br-db').value = 1;
+  document.getElementById('br-megjegyzes').value = '';
+  brRenderSajat();
+}
+
+function brRenderSajat(){
+  const sajat = rendelesek.filter(function(r){ return r.berloId === bejelentkezettBerlo.id; })
+    .sort(function(a,b){ return b.datum.localeCompare(a.datum); });
+  const div = document.getElementById('br-sajat-lista');
+  if(!sajat.length){ div.innerHTML='<div class="empty-state">Még nincs leadott igényed</div>'; return; }
+  const statLabel = {'fuggoben':'⏳ Függőben','megrendelve':'📦 Megrendelve','megerkezett':'✅ Megérkezett'};
+  const statColor = {'fuggoben':'#fee2e2','megrendelve':'#FFF3E0','megerkezett':'#e8f2ec'};
+  div.innerHTML = sajat.map(function(r){
+    return `<div class="naplo-item">
+      <div class="naplo-header">
+        <div>
+          <div class="naplo-nev">${r.termekNev}</div>
+          <div style="font-size:12px;color:var(--text3);">${r.datum} · ${r.db} db${r.megjegyzes?' · '+r.megjegyzes:''}</div>
+        </div>
+        <div style="padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:${statColor[r.statusz]||'#f0ede8'};">${statLabel[r.statusz]||r.statusz}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function bRenderJutalek(){
   const list = eladas.filter(e=>e.berloId===bejelentkezettBerlo.id && e.tipus==='vendeg');
   const fuggoben = list.filter(e=>(e.jutalekStatusz||'fuggoben')==='fuggoben').reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
