@@ -913,10 +913,11 @@ function brRenderSajat(){
       '</div>' +
       '<div id="'+csId+'" style="display:'+(nyitva?'block':'none')+';">' +
         tetelek.map(function(r){
+          var p = products.find(function(x){return x.id===r.termekId;});
           return '<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">' +
             '<div>' +
               '<div style="font-weight:500;font-size:13px;">'+r.termekNev+'</div>' +
-              '<div style="font-size:12px;color:var(--text3);">'+r.datum.slice(11,16)+' · '+r.db+' db'+(r.megjegyzes?' · '+r.megjegyzes:'')+'</div>' +
+              '<div style="font-size:12px;color:var(--text3);">'+(p?p.kat+' · ':'')+r.datum.slice(11,16)+' · '+r.db+' db'+(r.megjegyzes?' · '+r.megjegyzes:'')+'</div>' +
             '</div>' +
             '<div style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:'+(statColor[r.statusz]||'#f0ede8')+';white-space:nowrap;">'+(statLabel[r.statusz]||r.statusz)+'</div>' +
           '</div>';
