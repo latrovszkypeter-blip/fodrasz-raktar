@@ -842,7 +842,8 @@ function brKosarba(){
   if(!termekId && !szabadszoveg){ alert('Válassz terméket vagy írj le egyet!'); return; }
   const p = termekId ? products.find(function(x){return x.id===termekId;}) : null;
   const termekNev = p ? p.nev : szabadszoveg;
-  brKosar.push({ termekId, termekNev, db, megjegyzes });
+  const kat = p ? p.kat : '';
+  brKosar.push({ termekId, termekNev, kat, db, megjegyzes });
   brRenderKosar();
   document.getElementById('br-termek').value = '';
   document.getElementById('br-szabadszoveg').value = '';
@@ -858,7 +859,7 @@ function brRenderKosar(){
   lista.innerHTML = brKosar.map(function(k,i){
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;font-size:13px;">' +
       '<div><div style="font-weight:600;">'+k.termekNev+'</div>' +
-      '<div style="color:var(--text3);font-size:12px;">'+k.db+' db'+(k.megjegyzes?' · '+k.megjegyzes:'')+'</div></div>' +
+      '<div style="color:var(--text3);font-size:12px;">'+(k.kat?k.kat+' · ':'')+k.db+' db'+(k.megjegyzes?' · '+k.megjegyzes:'')+'</div></div>' +
       '<button class="btn btn-sm btn-danger" onclick="brKosarTorles('+i+')">×</button>' +
     '</div>';
   }).join('');
@@ -891,17 +892,47 @@ function brRenderSajat(){
   if(!sajat.length){ div.innerHTML='<div class="empty-state">Még nincs leadott igényed</div>'; return; }
   const statLabel = {'fuggoben':'⏳ Függőben','megrendelve':'📦 Megrendelve','megerkezett':'✅ Megérkezett'};
   const statColor = {'fuggoben':'#fee2e2','megrendelve':'#FFF3E0','megerkezett':'#e8f2ec'};
-  div.innerHTML = sajat.map(function(r){
-    return `<div class="naplo-item">
-      <div class="naplo-header">
-        <div>
-          <div class="naplo-nev">${r.termekNev}</div>
-          <div style="font-size:12px;color:var(--text3);">${r.datum} · ${r.db} db${r.megjegyzes?' · '+r.megjegyzes:''}</div>
-        </div>
-        <div style="padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;background:${statColor[r.statusz]||'#f0ede8'};">${statLabel[r.statusz]||r.statusz}</div>
-      </div>
-    </div>`;
+  // Dátum szerint csoportosítás (nap szintű)
+  const csoportok = {};
+  sajat.forEach(function(r){
+    const nap = r.datum.slice(0,10);
+    if(!csoportok[nap]) csoportok[nap] = [];
+    csoportok[nap].push(r);
+  });
+  const napok = Object.keys(csoportok).sort(function(a,b){return b.localeCompare(a);});
+  div.innerHTML = napok.map(function(nap, idx){
+    const tetelek = csoportok[nap];
+    const nyitva = idx === 0; // első csoport nyitva
+    const csId = 'cs-'+nap.replace(/-/g,'');
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">' +
+      '<div onclick="brToggleCs(''+csId+'')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;font-weight:600;font-size:14px;">' +
+        '<span>'+ nap +'</span>' +
+        '<span style="display:flex;align-items:center;gap:8px;">' +
+          '<span style="font-size:12px;font-weight:400;color:var(--text3);">'+tetelek.length+' tétel</span>' +
+          '<span id="'+csId+'-arrow" style="font-size:10px;color:var(--text3);transition:transform 0.2s;">'+(nyitva?'▼':'▶')+'</span>' +
+        '</span>' +
+      '</div>' +
+      '<div id="'+csId+'" style="display:'+(nyitva?'block':'none')+';">' +
+        tetelek.map(function(r){
+          return '<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">' +
+            '<div>' +
+              '<div style="font-weight:500;font-size:13px;">'+r.termekNev+'</div>' +
+              '<div style="font-size:12px;color:var(--text3);">'+r.datum.slice(11,16)+' · '+r.db+' db'+(r.megjegyzes?' · '+r.megjegyzes:'')+'</div>' +
+            '</div>' +
+            '<div style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:'+(statColor[r.statusz]||'#f0ede8')+';white-space:nowrap;">'+(statLabel[r.statusz]||r.statusz)+'</div>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+    '</div>';
   }).join('');
+}
+
+function brToggleCs(id){
+  var el = document.getElementById(id);
+  var arrow = document.getElementById(id+'-arrow');
+  var open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▶' : '▼';
 }
 
 function bRenderJutalek(){
