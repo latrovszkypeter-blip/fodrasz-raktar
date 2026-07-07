@@ -404,8 +404,7 @@ async function loadData(){
       datum:r.datum||'', statusz:r.statusz||'fuggoben'
     }));
     nextRid = rendelesek.length ? Math.max(...rendelesek.map(r=>r.id))+1 : 1;
-    renderBerloList();
-    // Ha már be van jelentkezve, frissítjük a kategória listát
+    try{ renderBerloList(); } catch(e){ console.error('renderBerloList hiba:', e); }
     if(bejelentkezettBerlo) bUpdateKatLista();
   } catch(err){
     console.error(err);
@@ -632,19 +631,6 @@ function bUpdateAr(){
       document.getElementById('b-ar-hint').textContent = 'Vendég ár: '+fmt(p.elar||0)+' · Jutalékod: '+fmt(Math.round((p.elar||0)*JUTALEK_PCT/100));
     }
   } else {
-    document.getElementById('b-ar-hint').textContent = '';
-  }
-  bUpdateCalc();
-}
-
-function bUpdateAr(){
-  const tid = parseInt(document.getElementById('b-termek').value);
-  const p = products.find(x=>x.id===tid);
-  if(p){
-    document.getElementById('b-ar').value = p.elar;
-    document.getElementById('b-ar-hint').textContent = 'Vendég ár: '+fmt(p.elar)+' · Jutalékod: '+fmt(Math.round(p.elar*JUTALEK_PCT/100));
-  } else {
-    document.getElementById('b-ar').value = 0;
     document.getElementById('b-ar-hint').textContent = '';
   }
   bUpdateCalc();
