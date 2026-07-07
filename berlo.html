@@ -379,6 +379,7 @@ function fixDatum(d){
 
 // BETÖLTÉS
 async function loadData(){
+  document.getElementById('berlo-select-list').innerHTML='<div class="empty-state">Kapcsolódás...</div>';
   try{
     const res = await fetch(SCRIPT_URL + '?action=getAll');
     const data = await res.json();
@@ -818,7 +819,7 @@ function brInit(){
     return ai-bi;
   });
   const katSel = document.getElementById('br-kat');
-  katSel.innerHTML = '<option value="">-- Minden kategória --</option>'+allKats.map(k=>`<option value="${k}">${k}</option>`).join('');
+  katSel.innerHTML = '<option value="">-- Minden kategória --</option>'+allKats.map(function(k){ return '<option value="'+k+'">'+k+'</option>'; }).join('');
   brUpdateTermekek();
   brRenderSajat();
 }
