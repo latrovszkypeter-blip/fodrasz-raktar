@@ -579,6 +579,8 @@ tbody tr:hover td { filter: brightness(0.97); }
   </div>
   <div class="toolbar">
     <select id="r-berlo" onchange="renderRendeles()"><option value="">Minden bérlő</option></select>
+    <input type="date" id="r-tol" onchange="renderRendeles()" />
+    <input type="date" id="r-ig" onchange="renderRendeles()" />
     <select id="r-statusz" onchange="renderRendeles()">
       <option value="">Minden státusz</option>
       <option value="fuggoben">Függőben</option>
@@ -1692,6 +1694,8 @@ async function saveArazas(){
 function renderRendeles(){
   const bId = parseInt(document.getElementById('r-berlo').value)||0;
   const statF = document.getElementById('r-statusz').value;
+  const tol = document.getElementById('r-tol').value;
+  const ig = document.getElementById('r-ig').value;
   // Bérlő lista feltöltése
   const sel = document.getElementById('r-berlo');
   const cur = sel.value;
@@ -1700,6 +1704,8 @@ function renderRendeles(){
   let list = [...rendelesek].filter(r=>{
     if(bId && r.berloId!==bId) return false;
     if(statF && r.statusz!==statF) return false;
+    if(tol && r.datum.slice(0,10) < tol) return false;
+    if(ig && r.datum.slice(0,10) > ig) return false;
     return true;
   }).sort((a,b)=>b.datum.localeCompare(a.datum));
   const tbody = document.getElementById('rendeles-tbody');
@@ -1735,6 +1741,8 @@ function setRendelesStatusz(id, statusz){
 function clearRendelesFilter(){
   document.getElementById('r-berlo').value='';
   document.getElementById('r-statusz').value='';
+  document.getElementById('r-tol').value='';
+  document.getElementById('r-ig').value='';
   renderRendeles();
 }
 
