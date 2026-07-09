@@ -264,7 +264,28 @@ tbody tr:hover td { filter: brightness(0.97); }
 </style>
 </head>
 <body>
-<div class="shell">
+<!-- ADMIN BEJELENTKEZÉS -->
+<div id="admin-login" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px 28px;width:100%;max-width:360px;box-shadow:var(--shadow-md);">
+    <div style="width:52px;height:52px;background:var(--accent);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+      <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
+    </div>
+    <div style="font-size:20px;font-weight:600;text-align:center;margin-bottom:6px;">Fodrász Raktár</div>
+    <div style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:28px;">Admin belépés</div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;">Jelszó</label>
+      <input type="password" id="admin-pw" placeholder="Add meg a jelszót" 
+        style="width:100%;padding:11px 13px;font-size:14px;font-family:DM Sans,sans-serif;border-radius:var(--radius);border:1px solid var(--border);outline:none;box-sizing:border-box;"
+        onkeydown="if(event.key==='Enter')adminBelep()" />
+    </div>
+    <div id="admin-hiba" style="color:#991b1b;font-size:13px;text-align:center;min-height:20px;margin-bottom:10px;"></div>
+    <button onclick="adminBelep()" style="width:100%;padding:12px;font-size:14px;font-weight:600;font-family:DM Sans,sans-serif;border-radius:var(--radius);border:none;background:var(--accent);color:white;cursor:pointer;">
+      Belépés
+    </button>
+  </div>
+</div>
+
+<div class="shell" id="admin-app" style="display:none;">
 
 <div class="top-bar">
   <div class="logo">
@@ -1978,7 +1999,33 @@ window.addEventListener('focus', function(){
   if(!isLoading) loadFromSheet(true);
 });
 
-loadFromSheet(false);
+
+// ADMIN BEJELENTKEZÉS
+const ADMIN_JELSZO = 'meduza2024'; // Ezt változtasd meg!
+
+function adminBelep(){
+  const pw = document.getElementById('admin-pw').value;
+  if(pw === ADMIN_JELSZO){
+    document.getElementById('admin-login').style.display = 'none';
+    document.getElementById('admin-app').style.display = 'block';
+    sessionStorage.setItem('admin_auth', '1');
+    loadFromSheet(false);
+  } else {
+    document.getElementById('admin-hiba').textContent = 'Hibás jelszó!';
+    document.getElementById('admin-pw').value = '';
+    setTimeout(()=>{ document.getElementById('admin-hiba').textContent=''; }, 2000);
+  }
+}
+
+// Ellenőrzés oldal betöltésekor
+(function(){
+  if(sessionStorage.getItem('admin_auth') === '1'){
+    document.getElementById('admin-login').style.display = 'none';
+    document.getElementById('admin-app').style.display = 'block';
+    loadFromSheet(false);
+  }
+})();
+
 </script>
 
 <!-- Modal: import -->
