@@ -317,6 +317,10 @@ tbody tr:hover td { filter: brightness(0.97); }
     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
     <span>Rendelések</span>
   </button>
+  <button class="tab" onclick="showTab('lomtar',this)">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+    <span>Lomtár</span>
+  </button>
 </div>
 
 <!-- KÉSZLET -->
@@ -572,6 +576,15 @@ tbody tr:hover td { filter: brightness(0.97); }
   <div id="berlo-lista"></div>
 </div>
 
+<!-- LOMTÁR -->
+<div id="tab-lomtar" class="page">
+  <div class="section-header">
+    <div class="section-title">Lomtár</div>
+    <div style="font-size:13px;color:var(--text2);">Törölt termékek és eladások – 30 napig visszaállíthatók</div>
+  </div>
+  <div id="lomtar-lista"></div>
+</div>
+
 <!-- RENDELÉSEK -->
 <div id="tab-rendeles" class="page">
   <div class="section-header">
@@ -721,6 +734,7 @@ let eladas=[];
 let nextPid=1,nextBid=1,nextEid=1,editPid=null,editBid=null,mozgPid=null;
 let rendelesek=[];
 let nextRid=1;
+let lomtar=[];
 let saveTimeout=null;
 let isLoading=true;
 const JUTALEK_PCT = 18;
@@ -823,6 +837,7 @@ async function loadFromSheet(silent){
     berlok = (data.berlok||[]).map(b=>({
       id:Number(b.id), nev:String(b.nev||''), adoszam:String(b.adoszam||''), telefon:String(b.telefon||''), pin:String(b.pin||'').trim()
     })).filter(b=>b.id && b.nev);
+    lomtar = (data.lomtar||[]);
     rendelesek = (data.rendelesek||[]).map(r=>({
       id:Number(r.id), berloId:Number(r.berloId), termekId:Number(r.termekId)||0,
       termekNev:r.termekNev||'', db:Number(r.db)||0, megjegyzes:r.megjegyzes||'',
@@ -899,7 +914,7 @@ async function saveToSheet(){
   saveTimeout = setTimeout(async ()=>{
     try{
       showSyncStatus('Mentés...', false);
-      const payload = { termekek: products, berlok: berlok, eladasok: eladas, rendelesek: rendelesek };
+      const payload = { termekek: products, berlok: berlok, eladasok: eladas, rendelesek: rendelesek, lomtar: lomtar };
       const data = await postToSheet(payload);
       if(data.error) throw new Error(data.error);
       showSyncStatus('Mentve ✓', false);
@@ -938,6 +953,7 @@ function showTab(t,el){
   if(t==='arazas')renderArazas();
   if(t==='jutalek')renderJutalek();
   if(t==='rendeles')renderRendeles();
+  if(t==='lomtar')renderLomtar();
 }
 
 function renderStats(){
@@ -1161,7 +1177,16 @@ function saveProduct(){
   renderKeszlet();
   saveToSheet();
 }
-function delProduct(id){if(!confirm('Biztosan törlöd ezt a terméket?'))return;products=products.filter(p=>p.id!==id);renderKeszlet();saveToSheet();}
+function delProduct(id){
+  if(!confirm('Biztosan törlöd ezt a terméket? 30 napig visszaállítható lesz a Lomtárból.')) return;
+  const p = products.find(x=>x.id===id);
+  if(p){
+    lomtar.push({...p, tipus:'termek', torolveDatum: new Date().toISOString().slice(0,10)});
+    products = products.filter(x=>x.id!==id);
+  }
+  renderKeszlet();
+  saveToSheet();
+}
 
 function openMozg(id){mozgPid=id;const p=products.find(x=>x.id===id);
   document.getElementById('mozgTitle').textContent=p.nev;
@@ -1449,8 +1474,14 @@ function renderNaplo(){
 }
 function clearNaploFilter(){['n-tipus','n-berlo','n-tol','n-ig'].forEach(id=>document.getElementById(id).value='');renderNaplo();}
 function delNaplo(id){
-  if(!confirm('Biztosan törlöd ezt a tételt a naplóból?\n\nFigyelem: a készlet NEM kerül vissza!'))return;
-  eladas=eladas.filter(e=>e.id!==id);
+  if(!confirm('Biztosan törlöd ezt a tételt? 30 napig visszaállítható lesz a Lomtárból.')) return;
+  const e = eladas.find(x=>x.id===id);
+  if(e){
+    const p = products.find(x=>x.id===e.termekId);
+    if(p) p.keszlet += e.db;
+    lomtar.push({...e, tipus:'eladas', torolveDatum: new Date().toISOString().slice(0,10)});
+    eladas = eladas.filter(x=>x.id!==id);
+  }
   renderNaplo();
   saveToSheet();
 }
@@ -1644,6 +1675,62 @@ async function saveArazas(){
     showSyncStatus('Mentési hiba!', true);
     alert('Mentési hiba – próbáld újra!');
   }
+}
+
+function renderLomtar(){
+  const div = document.getElementById('lomtar-lista');
+  // 30 napnál régebbiek automatikus törlése
+  const hatar = new Date();
+  hatar.setDate(hatar.getDate()-30);
+  lomtar = lomtar.filter(x=>{
+    const d = new Date(x.torolveDatum);
+    return d >= hatar;
+  });
+  if(!lomtar.length){
+    div.innerHTML='<div class="empty-state" style="padding:40px;">A lomtár üres</div>';
+    return;
+  }
+  div.innerHTML = lomtar.map((x,i)=>{
+    const nap = x.torolveDatum;
+    const maradt = Math.ceil((new Date(x.torolveDatum).getTime() + 30*24*60*60*1000 - Date.now()) / (24*60*60*1000));
+    if(x.tipus==='termek'){
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:600;">${x.nev}</div>
+          <div style="font-size:12px;color:var(--text3);">${x.kat} · Törölve: ${nap} · Még ${maradt} napig visszaállítható</div>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="visszaallitLomtar(${i})">Visszaállítás</button>
+      </div>`;
+    } else {
+      const p = products.find(pr=>pr.id===x.termekId);
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:600;">${p?p.nev:'?'} – ${x.db} db (${fmt(x.ar)})</div>
+          <div style="font-size:12px;color:var(--text3);">Eladás · ${x.datum} · Törölve: ${nap} · Még ${maradt} napig visszaállítható</div>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="visszaallitLomtar(${i})">Visszaállítás</button>
+      </div>`;
+    }
+  }).join('');
+}
+
+function visszaallitLomtar(idx){
+  const x = lomtar[idx];
+  if(!x) return;
+  if(x.tipus==='termek'){
+    const {tipus, torolveDatum, ...termek} = x;
+    products.push(termek);
+    alert(x.nev+' visszaállítva a készletbe!');
+  } else {
+    const {tipus, torolveDatum, ...e} = x;
+    eladas.push(e);
+    const p = products.find(pr=>pr.id===e.termekId);
+    if(p) p.keszlet -= e.db;
+    alert('Eladás visszaállítva a naplóba!');
+  }
+  lomtar.splice(idx,1);
+  renderLomtar();
+  saveToSheet();
 }
 
 function renderRendeles(){
