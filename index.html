@@ -1342,23 +1342,58 @@ function updateEladasCalc(){
 }
 let kosar = [];
 
-function kosobaTesz(){
+async function kosobaTesz(){
   const berloId = parseInt(document.getElementById('e-berlo').value);
   const termekId = parseInt(document.getElementById('e-termek').value);
   const db = parseInt(document.getElementById('e-db').value)||0;
   const ar = parseInt(document.getElementById('e-ar').value)||0;
   const megjegyzes = document.getElementById('e-megjegyzes').value;
+  const datumRaw = document.getElementById('e-datum').value;
+  const datum = datumRaw ? datumRaw.replace('T',' ') : '';
   if(!berloId){ alert('Válassz bérlőt!'); return; }
   if(!termekId){ alert('Válassz terméket!'); return; }
   if(db<=0){ alert('Adj meg mennyiséget!'); return; }
   const p = products.find(x=>x.id===termekId);
   if(!p) return;
-  const kosar_db = kosar.filter(k=>k.termekId===termekId).reduce((s,k)=>s+k.db,0);
-  if(p.keszlet < db + kosar_db){ alert('Nincs elegendő készlet! ('+p.keszlet+' db van, kosárban már: '+kosar_db+' db)'); return; }
-  kosar.push({ berloId, termekId, db, ar, besar: p.besar, megjegyzes, tipus: currentEladasTipus, p });
+  if(p.keszlet < db){ alert('Nincs elegendő készlet! ('+p.keszlet+' db van)'); return; }
+
+  // Azonnal rögzítjük és mentjük a Sheetbe
+  p.keszlet -= db;
+  const bevetel = db*ar;
+  const jutalekOsszeg = currentEladasTipus==='vendeg' ? Math.round(bevetel*JUTALEK_PCT/100) : 0;
+  const uj = {
+    id: nextEid++, berloId, termekId, db, ar, besar: p.besar,
+    datum, megjegyzes, tipus: currentEladasTipus, jutalekOsszeg,
+    jutalekStatusz: currentEladasTipus==='vendeg' ? 'fuggoben' : '',
+    rogzitette: 'admin'
+  };
+  eladas.push(uj);
+  kosar.push({ berloId, termekId, db, ar, besar: p.besar, megjegyzes, tipus: currentEladasTipus, p, eladasId: uj.id });
   renderKosar();
-  // Kosár mentése localStorage-ba biztonságként
-  try{ localStorage.setItem('kosar_mentett', JSON.stringify(kosar.map(k=>({berloId:k.berloId,termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus})))); } catch(e){}
+
+  // Azonnali mentés a Sheetbe
+  showSyncStatus('Mentés...', false);
+  try{
+    const payload = { termekek: products, berlok: berlok, eladasok: eladas, rendelesek: rendelesek, lomtar: lomtar };
+    const jsonStr = JSON.stringify(payload);
+    const encoded = encodeURIComponent(jsonStr);
+    var res;
+    if(encoded.length < 6000){
+      res = await fetch(SCRIPT_URL + '?action=saveAll&data=' + encoded);
+    } else {
+      const params = new URLSearchParams();
+      params.append('action', 'saveAll');
+      params.append('data', jsonStr);
+      res = await fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params.toString() });
+    }
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    showSyncStatus('Mentve ✓', false);
+  } catch(err){
+    showSyncStatus('Mentési hiba!', true);
+    console.error(err);
+  }
+
   document.getElementById('e-termek').value = '';
   document.getElementById('e-kat').value = '';
   document.getElementById('e-db').value = 1;
@@ -1402,74 +1437,32 @@ function renderKosar(){
 }
 
 function kosarTorles(i){
+  const k = kosar[i];
+  // Visszavonjuk az eladást és a készletet
+  if(k.eladasId){
+    eladas = eladas.filter(e=>e.id!==k.eladasId);
+    const p = products.find(x=>x.id===k.termekId);
+    if(p) p.keszlet += k.db;
+  }
   kosar.splice(i,1);
   renderKosar();
+  saveToSheet();
 }
 
 async function rogzitEladas(){
-  const berloId = parseInt(document.getElementById('e-berlo').value);
-  const datumRaw = document.getElementById('e-datum').value;
-  const datum = datumRaw ? datumRaw.replace('T',' ') : '';
-  if(!berloId){ alert('Válassz bérlőt!'); return; }
-  if(!kosar.length){ alert('A kosár üres! Adj hozzá terméket a Kosárba gombbal.'); return; }
-  var ok = true;
-  kosar.forEach(function(k){
-    const p = products.find(function(x){return x.id===k.termekId;});
-    if(p && p.keszlet < k.db){ alert('Nincs elegendő készlet: '+p.nev+' ('+p.keszlet+' db van)'); ok=false; }
-  });
-  if(!ok) return;
-
-  // Mentés ELŐTT készítünk biztonsági másolatot a kosárról
-  const kosarMentett = JSON.parse(JSON.stringify(kosar));
-
-  kosar.forEach(function(k){
-    const p = products.find(function(x){return x.id===k.termekId;});
-    if(p) p.keszlet -= k.db;
-    const bevetel = k.db*k.ar;
-    const jutalekOsszeg = k.tipus==='vendeg' ? Math.round(bevetel*JUTALEK_PCT/100) : 0;
-    eladas.push({
-      id:nextEid++, berloId, termekId:k.termekId, db:k.db, ar:k.ar,
-      besar:k.besar, datum:datum, megjegyzes:k.megjegyzes,
-      tipus:k.tipus, jutalekOsszeg,
-      jutalekStatusz: k.tipus==='vendeg' ? 'fuggoben' : '',
-      rogzitette: 'admin'
-    });
-  });
-
+  if(!berloId_check()) return;
+  if(!kosar.length){ alert('A kosár üres!'); return; }
   kosar = [];
   renderKosar();
-  renderKeszlet();
+  try{ localStorage.removeItem('kosar_mentett'); } catch(e){}
+  alert('Rendelés lezárva! Minden tétel el lett mentve.');
+  renderEladasForm();
+}
 
-  // Mentés - ha sikertelen, figyelmeztetés
-  showSyncStatus('Mentés...', false);
-  try{
-    const payload = { termekek: products, berlok: berlok, eladasok: eladas, rendelesek: rendelesek, lomtar: lomtar };
-    const jsonStr = JSON.stringify(payload);
-    const encoded = encodeURIComponent(jsonStr);
-    var res;
-    if(encoded.length < 6000){
-      res = await fetch(SCRIPT_URL + '?action=saveAll&data=' + encoded);
-    } else {
-      const params = new URLSearchParams();
-      params.append('action', 'saveAll');
-      params.append('data', jsonStr);
-      res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: params.toString()
-      });
-    }
-    const data = await res.json();
-    if(data.error) throw new Error(data.error);
-    showSyncStatus('Mentve ✓', false);
-    try{ localStorage.removeItem('kosar_mentett'); } catch(e){}
-    alert('Rögzítve és elmentve!');
-    renderEladasForm();
-  } catch(err){
-    showSyncStatus('MENTÉSI HIBA!', true);
-    alert('FIGYELEM: A rögzítés sikerült de a mentés SIKERTELEN!\n\nNe zárd be az oldalt! Próbáld meg a Frissítés gombot megnyomni hogy újra mentse az adatokat.');
-    console.error(err);
-  }
+function berloId_check(){
+  const berloId = parseInt(document.getElementById('e-berlo').value);
+  if(!berloId){ alert('Válassz bérlőt!'); return false; }
+  return true;
 }
 
 function populateSelect(id,placeholder){
