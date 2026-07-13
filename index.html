@@ -1719,7 +1719,24 @@ function renderLomtar(){
       return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
         <div>
           <div style="font-weight:600;">${x.nev}</div>
-          <div style="font-size:12px;color:var(--text3);">${x.kat} · Törölve: ${nap} · Még ${maradt} napig visszaállítható</div>
+          <div style="font-size:12px;color:var(--text3);">Termék · Törölve: ${nap} · Még ${maradt} napig visszaállítható</div>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="visszaallitLomtar(${i})">Visszaállítás</button>
+      </div>`;
+    } else if(x.tipus==='rendeles'){
+      const b = berlok.find(bl=>bl.id===x.berloId);
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:600;">${x.termekNev} – ${b?b.nev:'?'}</div>
+          <div style="font-size:12px;color:var(--text3);">Rendelési igény · ${x.datum} · ${x.db} db · Törölve: ${nap} · Még ${maradt} napig visszaállítható</div>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="visszaallitLomtar(${i})">Visszaállítás</button>
+      </div>`;
+    } else if(x.tipus==='berlo'){
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:600;">${x.nev}</div>
+          <div style="font-size:12px;color:var(--text3);">Bérlő · Törölve: ${nap} · Még ${maradt} napig visszaállítható</div>
         </div>
         <button class="btn btn-sm btn-primary" onclick="visszaallitLomtar(${i})">Visszaállítás</button>
       </div>`;
@@ -1743,6 +1760,14 @@ function visszaallitLomtar(idx){
     const {tipus, torolveDatum, ...termek} = x;
     products.push(termek);
     alert(x.nev+' visszaállítva a készletbe!');
+  } else if(x.tipus==='rendeles'){
+    const {tipus, torolveDatum, ...rendeles} = x;
+    rendelesek.push(rendeles);
+    alert('Rendelési igény visszaállítva!');
+  } else if(x.tipus==='berlo'){
+    const {tipus, torolveDatum, ...berlo} = x;
+    berlok.push(berlo);
+    alert(x.nev+' bérlő visszaállítva!');
   } else {
     const {tipus, torolveDatum, ...e} = x;
     eladas.push(e);
@@ -1854,8 +1879,9 @@ function setRendelesCsoportStatusz(key, statusz, idx){
 function delRendelesCsoport(key){
   const bId = key.split('||')[1];
   const nap = key.split('||')[0];
-  const count = rendelesek.filter(r=>String(r.berloId)===String(bId) && r.datum.slice(0,10)===nap).length;
-  if(!confirm('Biztosan törlöd az összes '+count+' tételt ebből a rendelésből?')) return;
+  const torlendo = rendelesek.filter(r=>String(r.berloId)===String(bId) && r.datum.slice(0,10)===nap);
+  if(!confirm('Biztosan törlöd az összes '+torlendo.length+' tételt ebből a rendelésből?')) return;
+  torlendo.forEach(r=>lomtar.push({...r, tipus:'rendeles', torolveDatum: new Date().toISOString().slice(0,10)}));
   rendelesek = rendelesek.filter(r=>!(String(r.berloId)===String(bId) && r.datum.slice(0,10)===nap));
   saveToSheet();
   renderRendeles();
@@ -1863,6 +1889,8 @@ function delRendelesCsoport(key){
 
 function delRendeles(id){
   if(!confirm('Biztosan törlöd ezt a rendelési tételt?')) return;
+  const r = rendelesek.find(x=>x.id===id);
+  if(r) lomtar.push({...r, tipus:'rendeles', torolveDatum: new Date().toISOString().slice(0,10)});
   rendelesek = rendelesek.filter(r=>r.id!==id);
   saveToSheet();
   renderRendeles();
@@ -1942,7 +1970,14 @@ function saveBerlo(){
     else showSyncStatus('Mentési hiba!', true);
   });
 }
-function delBerlo(id){if(!confirm('Törlöd ezt a bérlőt?'))return;berlok=berlok.filter(b=>b.id!==id);renderBerlok();saveToSheet();}
+function delBerlo(id){
+  if(!confirm('Törlöd ezt a bérlőt?')) return;
+  const b = berlok.find(x=>x.id===id);
+  if(b) lomtar.push({...b, tipus:'berlo', torolveDatum: new Date().toISOString().slice(0,10)});
+  berlok = berlok.filter(b=>b.id!==id);
+  renderBerlok();
+  saveToSheet();
+}
 
 function renderJutalek(){
   populateSelect('j-berlo','<option value="">Minden bérlő</option>');
