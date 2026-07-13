@@ -759,6 +759,7 @@ let nextRid=1;
 let lomtar=[];
 let saveTimeout=null;
 let isLoading=true;
+let isSaving=false;
 const JUTALEK_PCT = 18;
 let currentEladasTipus = 'berlo';
 
@@ -842,6 +843,7 @@ function fixDatum(d){
 }
 
 async function loadFromSheet(silent){
+  if(isSaving) return; // Ne töltsük felül ha épp mentés folyik
   isLoading=false;
   if(!silent) renderKeszlet();
   try{
@@ -876,6 +878,14 @@ async function loadFromSheet(silent){
     }));
     calcNextIds();
     showSyncStatus('Betöltve ✓', false);
+    // Ha van aktív kosár, ne írjuk felül az eladásokat
+    if(kosar.length > 0 && silent) {
+      // Csak a termékeket és bérlőket frissítjük, az eladásokat nem
+      const activeTab = document.querySelector('.tab.active');
+      const tabText = activeTab ? activeTab.textContent.trim() : '';
+      renderStats();
+      return;
+    }
     // Mindig frissítjük az aktív fület
     const activeTab = document.querySelector('.tab.active');
     const tabText = activeTab ? activeTab.textContent.trim() : '';
@@ -935,6 +945,7 @@ async function saveToSheet(){
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(async ()=>{
     try{
+      isSaving = true;
       showSyncStatus('Mentés...', false);
       const payload = { termekek: products, berlok: berlok, eladasok: eladas, rendelesek: rendelesek, lomtar: lomtar };
       const data = await postToSheet(payload);
@@ -943,6 +954,8 @@ async function saveToSheet(){
     }catch(err){
       showSyncStatus('Mentési hiba – ellenőrizd a kapcsolatot', true);
       console.error(err);
+    } finally {
+      isSaving = false;
     }
   }, 600);
 }
