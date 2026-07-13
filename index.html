@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fodrász Raktár</title>
+<title>Fodrász Raktár v2</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -1800,12 +1800,17 @@ function renderRendeles(){
           <span>${cs.nap} · ${cs.berloNev}</span>
           <span style="font-size:12px;font-weight:400;color:var(--text3);">${cs.tetelek.length} tétel</span>
         </div>
-        <select class="status-select" style="font-size:12px;font-weight:500;" onchange="setRendelesCsoportStatusz('${key}',this.value,${idx})">
-          <option value="">Összes státusz...</option>
-          <option value="fuggoben">⏳ Mind: Függőben</option>
-          <option value="megrendelve">📦 Mind: Megrendelve</option>
-          <option value="megerkezett">✅ Mind: Megérkezett</option>
-        </select>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select class="status-select" style="font-size:12px;font-weight:500;" onchange="setRendelesCsoportStatusz('${key}',this.value,${idx})">
+            <option value="">Összes státusz...</option>
+            <option value="fuggoben">⏳ Mind: Függőben</option>
+            <option value="megrendelve">📦 Mind: Megrendelve</option>
+            <option value="megerkezett">✅ Mind: Megérkezett</option>
+          </select>
+          <button class="btn btn-sm btn-danger" onclick="delRendelesCsoport('${key}')" title="Mind törlése">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+          </button>
+        </div>
       </div>
       <div id="${csId}" style="display:${nyitva?'block':'none'};">
         ${cs.tetelek.map(r=>{
@@ -1842,6 +1847,16 @@ function setRendelesCsoportStatusz(key, statusz, idx){
   rendelesek.forEach(r=>{
     if(String(r.berloId)===String(bId) && r.datum.slice(0,10)===nap) r.statusz=statusz;
   });
+  saveToSheet();
+  renderRendeles();
+}
+
+function delRendelesCsoport(key){
+  const bId = key.split('||')[1];
+  const nap = key.split('||')[0];
+  const count = rendelesek.filter(r=>String(r.berloId)===String(bId) && r.datum.slice(0,10)===nap).length;
+  if(!confirm('Biztosan törlöd az összes '+count+' tételt ebből a rendelésből?')) return;
+  rendelesek = rendelesek.filter(r=>!(String(r.berloId)===String(bId) && r.datum.slice(0,10)===nap));
   saveToSheet();
   renderRendeles();
 }
