@@ -238,7 +238,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
           </div>
           <div class="form-row">
             <label>Dátum</label>
-            <input type="datetime-local" id="b-datum" style="font-size:13px;padding:8px 10px;" />
+            <input type="datetime-local" id="b-datum" style="font-size:12px;padding:6px 8px;width:100%;box-sizing:border-box;" />
           </div>
         </div>
 
@@ -289,8 +289,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
     <!-- NAPLÓ -->
     <div id="tab-naplo" class="page">
       <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-        <input type="date" id="b-naplo-tol" onchange="bRenderNaplo()" placeholder="Tól" style="flex:1;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;" />
-        <input type="date" id="b-naplo-ig" onchange="bRenderNaplo()" placeholder="Ig" style="flex:1;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;" />
+        <div style="flex:1;"><div style="font-size:11px;color:var(--text3);margin-bottom:3px;">Dátumtól</div><input type="date" id="b-naplo-tol" onchange="bRenderNaplo()" style="width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;box-sizing:border-box;" /></div>
+        <div style="flex:1;"><div style="font-size:11px;color:var(--text3);margin-bottom:3px;">Dátumig</div><input type="date" id="b-naplo-ig" onchange="bRenderNaplo()" style="width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;box-sizing:border-box;" /></div>
         <select id="b-naplo-tipus" onchange="bRenderNaplo()" style="flex:1;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;">
           <option value="">Minden típus</option>
           <option value="berlo">Saját vásárlás</option>
@@ -351,8 +351,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
     <!-- JUTALÉK -->
     <div id="tab-jutalek" class="page">
       <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-        <input type="date" id="b-jut-tol" onchange="bRenderJutalek()" style="flex:1;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;" />
-        <input type="date" id="b-jut-ig" onchange="bRenderJutalek()" style="flex:1;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;" />
+        <div style="flex:1;"><div style="font-size:11px;color:var(--text3);margin-bottom:3px;">Dátumtól</div><input type="date" id="b-jut-tol" onchange="bRenderJutalek()" style="width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;box-sizing:border-box;" /></div>
+        <div style="flex:1;"><div style="font-size:11px;color:var(--text3);margin-bottom:3px;">Dátumig</div><input type="date" id="b-jut-ig" onchange="bRenderJutalek()" style="width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;box-sizing:border-box;" /></div>
       </div>
       <div class="jutalek-osszesito" id="b-jutalek-stat"></div>
       <div id="b-jutalek-lista"></div>
