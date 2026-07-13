@@ -1189,9 +1189,9 @@ function saveProduct(){
   } else {
     var dupla = false;
     for(var j=0; j<products.length; j++){
-      if(products[j].nev.toLowerCase() === nev.toLowerCase()){ dupla = true; break; }
+      if(products[j].nev.toLowerCase() === nev.toLowerCase() && products[j].kat === kat){ dupla = true; break; }
     }
-    if(dupla){ alert('Ez a termék már létezik: "'+nev+'"'); return; }
+    if(dupla){ alert('Ez a termék már létezik ebben a kategóriában: "'+nev+'"'); return; }
     products.push({id: nextPid++, nev: nev, kat: kat, keszlet: keszlet, min: min, besar: besar, fogyasztoiar: fogyasztoiar, elar: elar});
   }
   
