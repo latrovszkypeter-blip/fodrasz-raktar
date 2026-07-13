@@ -238,7 +238,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
           </div>
           <div class="form-row">
             <label>Dátum</label>
-            <input type="datetime-local" id="b-datum" />
+            <input type="datetime-local" id="b-datum" style="font-size:13px;padding:8px 10px;" />
           </div>
         </div>
 
@@ -289,7 +289,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
     <!-- NAPLÓ -->
     <div id="tab-naplo" class="page">
       <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-        <select id="b-naplo-ho" onchange="bRenderNaplo()" style="flex:1;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;"></select>
+        <input type="date" id="b-naplo-tol" onchange="bRenderNaplo()" placeholder="Tól" style="flex:1;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;" />
+        <input type="date" id="b-naplo-ig" onchange="bRenderNaplo()" placeholder="Ig" style="flex:1;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;" />
         <select id="b-naplo-tipus" onchange="bRenderNaplo()" style="flex:1;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;">
           <option value="">Minden típus</option>
           <option value="berlo">Saját vásárlás</option>
@@ -349,6 +350,10 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
     <!-- JUTALÉK -->
     <div id="tab-jutalek" class="page">
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <input type="date" id="b-jut-tol" onchange="bRenderJutalek()" style="flex:1;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;" />
+        <input type="date" id="b-jut-ig" onchange="bRenderJutalek()" style="flex:1;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:'DM Sans',sans-serif;" />
+      </div>
       <div class="jutalek-osszesito" id="b-jutalek-stat"></div>
       <div id="b-jutalek-lista"></div>
     </div>
@@ -748,64 +753,55 @@ function bRogzit(){
 
 // NAPLÓ
 function bRenderNaplo(){
-  // Hónap lista feltöltése
-  const hoSel = document.getElementById('b-naplo-ho');
-  const curVal = hoSel.value;
-  const honapok = new Set();
-  eladas.filter(e=>e.berloId===bejelentkezettBerlo?.id).forEach(e=>{
-    if(e.datum) honapok.add(e.datum.slice(0,7));
-  });
-  const sorted = [...honapok].sort((a,b)=>b.localeCompare(a));
-  if(!sorted.includes(curVal)) sorted.unshift('');
-  hoSel.innerHTML = '<option value="">Összes időszak</option>' +
-    sorted.filter(h=>h).map(h=>`<option value="${h}">${h.replace('-',' ')}. hónap</option>`).join('');
-  if(curVal) hoSel.value = curVal;
-
-  const hoSzuro = hoSel.value;
+  const tol = document.getElementById('b-naplo-tol').value;
+  const ig = document.getElementById('b-naplo-ig').value;
   const tipusSzuro = document.getElementById('b-naplo-tipus').value;
+
   var list = eladas.filter(function(e){
     if(e.berloId !== bejelentkezettBerlo.id) return false;
     if(tipusSzuro && e.tipus !== tipusSzuro) return false;
-    if(hoSzuro && e.datum.slice(0,7) !== hoSzuro) return false;
+    if(tol && e.datum.slice(0,10) < tol) return false;
+    if(ig && e.datum.slice(0,10) > ig) return false;
     return true;
-  }).sort((a,b)=>b.datum.localeCompare(a.datum));
+  }).sort(function(a,b){return b.datum.localeCompare(a.datum);});
 
   const div = document.getElementById('b-naplo-lista');
   if(!list.length){ div.innerHTML='<div class="empty-state">Nincs rögzített eladás</div>'; document.getElementById('b-naplo-osszeg').innerHTML=''; return; }
 
   div.innerHTML = list.map(function(e){
-    const p = products.find(x=>x.id===e.termekId);
+    const p = products.find(function(x){return x.id===e.termekId;});
     const isVendeg = e.tipus==='vendeg';
     const bev = e.db*e.ar;
-    return `<div class="naplo-item">
-      <div class="naplo-header">
-        <div>
-          <div class="naplo-nev">${p?p.nev:'?'}</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:2px;">${p?p.kat:''}</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-weight:600;font-size:15px;">${fmt(bev)}</div>
-          <div class="naplo-datum">${e.datum}</div>
-        </div>
-      </div>
-      <div class="naplo-meta">
-        <span>${e.db} db × ${fmt(e.ar)}</span>
-        ${isVendeg ? '<span class="naplo-badge naplo-vendeg">Vendégeladás</span><span>Jutalék: '+fmt(e.jutalekOsszeg)+'</span>' : '<span class="naplo-badge naplo-berlo">Saját vásárlás</span>'}
-        ${e.megjegyzes ? '<span>'+e.megjegyzes+'</span>' : ''}
-      </div>
-    </div>`;
+    return '<div class="naplo-item">' +
+      '<div class="naplo-header">' +
+        '<div>' +
+          '<div class="naplo-nev">'+(p?p.nev:'?')+'</div>' +
+          '<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+(p?p.kat:'')+'</div>' +
+        '</div>' +
+        '<div style="text-align:right;">' +
+          '<div style="font-weight:600;font-size:15px;">'+fmt(bev)+'</div>' +
+          '<div class="naplo-datum">'+e.datum+'</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="naplo-meta">' +
+        '<span>'+e.db+' db × '+fmt(e.ar)+'</span>' +
+        (isVendeg ? '<span class="naplo-badge naplo-vendeg">Vendégeladás</span><span>Jutalék: '+fmt(e.jutalekOsszeg)+'</span>' : '<span class="naplo-badge naplo-berlo">Saját vásárlás</span>') +
+        (e.megjegyzes ? '<span>'+e.megjegyzes+'</span>' : '') +
+      '</div>' +
+    '</div>';
   }).join('');
 
-  const totFizet = list.filter(e=>e.tipus==='berlo').reduce((s,e)=>s+e.db*e.ar,0);
-  const totVendeg = list.filter(e=>e.tipus==='vendeg').reduce((s,e)=>s+e.db*e.ar,0);
-  const totJutalek = list.filter(e=>e.tipus==='vendeg').reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
-  document.getElementById('b-naplo-osszeg').innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Saját vásárlás összege:</span><strong>${fmt(totFizet)}</strong></div>
-      <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Vendégeladás összege:</span><strong>${fmt(totVendeg)}</strong></div>
-      <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--accent);"><span>Jutalék összesen:</span><strong>${fmt(totJutalek)}</strong></div>
-    </div>`;
+  const totFizet = list.filter(function(e){return e.tipus==='berlo';}).reduce(function(s,e){return s+e.db*e.ar;},0);
+  const totVendeg = list.filter(function(e){return e.tipus==='vendeg';}).reduce(function(s,e){return s+e.db*e.ar;},0);
+  const totJutalek = list.filter(function(e){return e.tipus==='vendeg';}).reduce(function(s,e){return s+(e.jutalekOsszeg||0);},0);
+  document.getElementById('b-naplo-osszeg').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:6px;">' +
+      '<div style="display:flex;justify-content:space-between;font-size:13px;"><span>Saját vásárlás összege:</span><strong>'+fmt(totFizet)+'</strong></div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:13px;"><span>Vendégeladás összege:</span><strong>'+fmt(totVendeg)+'</strong></div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--accent);"><span>Jutalék összesen:</span><strong>'+fmt(totJutalek)+'</strong></div>' +
+    '</div>';
 }
+
 
 // JUTALÉK
 
@@ -936,27 +932,37 @@ function brToggleCs(id){
 }
 
 function bRenderJutalek(){
-  const list = eladas.filter(e=>e.berloId===bejelentkezettBerlo.id && e.tipus==='vendeg');
-  const fuggoben = list.filter(e=>(e.jutalekStatusz||'fuggoben')==='fuggoben').reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
-  const kifizetve = list.filter(e=>e.jutalekStatusz==='kifizetve').reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
-  const berletbol = list.filter(e=>e.jutalekStatusz==='berletbol').reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
-  document.getElementById('b-jutalek-stat').innerHTML = `
-    <div class="jutalek-card"><div class="jutalek-label">Függőben</div><div class="jutalek-value" style="color:var(--warn);">${fmt(fuggoben)}</div></div>
-    <div class="jutalek-card"><div class="jutalek-label">Kifizetve</div><div class="jutalek-value" style="color:var(--accent);">${fmt(kifizetve)}</div></div>
-    <div class="jutalek-card" style="grid-column:1/-1;"><div class="jutalek-label">Bérletiből levonva</div><div class="jutalek-value">${fmt(berletbol)}</div></div>`;
+  const tol = document.getElementById('b-jut-tol') ? document.getElementById('b-jut-tol').value : '';
+  const ig = document.getElementById('b-jut-ig') ? document.getElementById('b-jut-ig').value : '';
+
+  const allList = eladas.filter(function(e){ return e.berloId===bejelentkezettBerlo.id && e.tipus==='vendeg'; });
+  const list = allList.filter(function(e){
+    if(tol && e.datum.slice(0,10) < tol) return false;
+    if(ig && e.datum.slice(0,10) > ig) return false;
+    return true;
+  });
+
+  const fuggoben = list.filter(function(e){return (e.jutalekStatusz||'fuggoben')==='fuggoben';}).reduce(function(s,e){return s+(e.jutalekOsszeg||0);},0);
+  const kifizetve = list.filter(function(e){return e.jutalekStatusz==='kifizetve';}).reduce(function(s,e){return s+(e.jutalekOsszeg||0);},0);
+  const berletbol = list.filter(function(e){return e.jutalekStatusz==='berletbol';}).reduce(function(s,e){return s+(e.jutalekOsszeg||0);},0);
+
+  document.getElementById('b-jutalek-stat').innerHTML =
+    '<div class="jutalek-card"><div class="jutalek-label">Függőben</div><div class="jutalek-value" style="color:var(--warn);">'+fmt(fuggoben)+'</div></div>' +
+    '<div class="jutalek-card"><div class="jutalek-label">Kifizetve</div><div class="jutalek-value" style="color:var(--accent);">'+fmt(kifizetve)+'</div></div>' +
+    '<div class="jutalek-card" style="grid-column:1/-1;"><div class="jutalek-label">Bérletiből levonva</div><div class="jutalek-value">'+fmt(berletbol)+'</div></div>';
 
   const div = document.getElementById('b-jutalek-lista');
-  if(!list.length){ div.innerHTML='<div class="empty-state">Még nincs vendégeladásod</div>'; return; }
-  div.innerHTML = list.sort((a,b)=>b.datum.localeCompare(a.datum)).map(function(e){
-    const p = products.find(x=>x.id===e.termekId);
+  if(!list.length){ div.innerHTML='<div class="empty-state">Nincs jutalék a megadott időszakban</div>'; return; }
+  div.innerHTML = list.sort(function(a,b){return b.datum.localeCompare(a.datum);}).map(function(e){
+    const p = products.find(function(x){return x.id===e.termekId;});
     const statLabel = {'fuggoben':'Függőben','kifizetve':'Kifizetve','berletbol':'Bérletiből levonva'}[e.jutalekStatusz||'fuggoben'];
-    return `<div class="naplo-item">
-      <div class="naplo-header">
-        <div><div class="naplo-nev">${p?p.nev:'?'}</div><div style="font-size:12px;color:var(--text3);">${e.datum}</div></div>
-        <div style="text-align:right;"><div style="font-weight:700;font-size:16px;color:var(--accent);">${fmt(e.jutalekOsszeg||0)}</div><div style="font-size:11px;color:var(--text3);">${statLabel}</div></div>
-      </div>
-      <div class="naplo-meta"><span>${e.db} db × ${fmt(e.ar)}</span><span>Eladás: ${fmt(e.db*e.ar)}</span></div>
-    </div>`;
+    return '<div class="naplo-item">' +
+      '<div class="naplo-header">' +
+        '<div><div class="naplo-nev">'+(p?p.nev:'?')+'</div><div style="font-size:12px;color:var(--text3);">'+e.datum+'</div></div>' +
+        '<div style="text-align:right;"><div style="font-weight:700;font-size:16px;color:var(--accent);">'+fmt(e.jutalekOsszeg||0)+'</div><div style="font-size:11px;color:var(--text3);">'+statLabel+'</div></div>' +
+      '</div>' +
+      '<div class="naplo-meta"><span>'+e.db+' db × '+fmt(e.ar)+'</span><span>Eladás: '+fmt(e.db*e.ar)+'</span></div>' +
+    '</div>';
   }).join('');
 }
 
