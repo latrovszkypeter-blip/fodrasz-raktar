@@ -593,6 +593,22 @@ function bInitEladas(){
   document.getElementById('b-kat').value = '';
   currentTipus = 'vendeg';
   bSetTipus('vendeg'); // Ez meghívja bUpdateKatLista-t és bUpdateTermekek-et
+  // Visszatöltjük a mentett kosarat ha van
+  if(!bKosar.length){
+    try{
+      const mentett = localStorage.getItem('b_kosar_mentett');
+      if(mentett){
+        const items = JSON.parse(mentett);
+        if(items.length){
+          items.forEach(function(k){
+            const p = products.find(function(x){return x.id===k.termekId;});
+            if(p) bKosar.push(Object.assign({}, k, {p: p}));
+          });
+          bRenderKosar();
+        }
+      }
+    } catch(e){}
+  }
 }
 
 function bUpdateKatLista(){
@@ -679,6 +695,8 @@ function bKosarba(){
   if(p.keszlet < db + kosar_db){ alert('Nincs elegendő készlet! ('+p.keszlet+' db van, kosárban már: '+kosar_db+' db)'); return; }
   bKosar.push({termekId, db, ar, besar: p.besar, megjegyzes, tipus: currentTipus, p});
   bRenderKosar();
+  // Kosár mentése localStorage-ba biztonságként
+  try{ localStorage.setItem('b_kosar_mentett', JSON.stringify(bKosar.map(function(k){return {termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus};}))); } catch(e){}
   document.getElementById('b-termek').value = '';
   document.getElementById('b-kat').value = '';
   document.getElementById('b-db').value = 1;
@@ -700,6 +718,7 @@ function bRenderKosar(){
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;font-size:13px;">' +
       '<div>' +
         '<div style="font-weight:600;">'+k.p.nev+'</div>' +
+        '<div style="color:var(--text3);font-size:11px;margin-bottom:2px;">'+k.p.kat+'</div>' +
         '<div style="color:var(--text3);font-size:12px;">'+k.db+' db × '+fmt(k.ar)+' = <strong>'+fmt(bev)+'</strong>'+(isVendeg?' · Jutalék: '+fmt(jutalek):'')+'</div>' +
       '</div>' +
       '<button class="btn btn-sm btn-danger" onclick="bKosarTorles('+i+')">×</button>' +
@@ -716,10 +735,11 @@ function bRenderKosar(){
 
 function bKosarTorles(i){
   bKosar.splice(i,1);
+  try{ localStorage.setItem('b_kosar_mentett', JSON.stringify(bKosar.map(function(k){return {termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus};}))); } catch(e){}
   bRenderKosar();
 }
 
-function bRogzit(){
+async function bRogzit(){
   const datumRaw = document.getElementById('b-datum').value;
   const datum = datumRaw ? datumRaw.replace('T',' ') : '';
   if(!bKosar.length){ alert('A kosár üres! Adj hozzá terméket.'); return; }
@@ -746,9 +766,14 @@ function bRogzit(){
   });
   bKosar = [];
   bRenderKosar();
-  saveData();
-  alert('Rögzítve!');
-  bInitEladas();
+  try{
+    await saveData();
+    try{ localStorage.removeItem('b_kosar_mentett'); } catch(e){}
+    alert('Rögzítve és elmentve!');
+    bInitEladas();
+  } catch(err){
+    alert('FIGYELEM: A rögzítés sikerült de a mentés SIKERTELEN!\n\nNe zárd be az oldalt! Próbálj újra belépni hogy az adatok mentődjenek.');
+  }
 }
 
 // NAPLÓ
