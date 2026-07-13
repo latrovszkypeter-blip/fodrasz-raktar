@@ -1364,6 +1364,7 @@ function renderKosar(){
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;font-size:13px;">' +
       '<div>' +
         '<div style="font-weight:600;">'+k.p.nev+'</div>' +
+        '<div style="color:var(--text3);font-size:11px;margin-bottom:2px;">'+k.p.kat+'</div>' +
         '<div style="color:var(--text3);font-size:12px;">'+k.db+' db × '+fmt(k.ar)+' = <strong>'+fmt(bev)+'</strong>'+(isVendeg?' · Jutalék: '+fmt(jutalek):' · Haszon: '+fmt(haszon))+'</div>' +
       '</div>' +
       '<button class="btn btn-sm btn-danger" onclick="kosarTorles('+i+')">×</button>' +
@@ -1437,64 +1438,95 @@ function renderNaplo(){
     if(ig&&e.datum>ig)return false;
     return true;
   }).sort((a,b)=>b.datum.localeCompare(a.datum));
+
   const tbody=document.getElementById('naplo-tbody');
-  if(!list.length){tbody.innerHTML='<tr><td colspan="12"><div class="empty-state">Nincs adat a szűrőkre</div></td></tr>';
-    document.getElementById('naplo-sum-bar').innerHTML='';return;}
-  tbody.innerHTML=list.map(e=>{
-    const b=berlok.find(x=>x.id===e.berloId),p=products.find(x=>x.id===e.termekId);
-    const besar=e.besar!==undefined?e.besar:(p?p.besar:0);
-    const bev=e.db*e.ar,kolt=e.db*besar;
-    const tipus=e.tipus||'berlo';
-    const isVendeg=tipus==='vendeg';
-    const has=isVendeg ? (bev-kolt-(e.jutalekOsszeg||0)) : (bev-kolt);
-    const tipusLabel=isVendeg?'<span class="type-pill vendeg">Vendég</span>':'<span class="type-pill berlo">Bérlő</span>';
-    const rogz = e.rogzitette||'admin';
-    // Szín logika: admin=zöld/piros, bérlő saját=kék, bérlő vendég=narancs
-    let rowBg = '';
-    let rogzLabel = '';
-    if(rogz==='berlo'){
-      if(isVendeg){
-        rowBg = 'background:#FFF3E0;'; // halvány narancssárga - bérlő vendégeladás
-        rogzLabel = '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#FFE0B2;color:#E65100;">Bérlő - vendég</span>';
-      } else {
-        rowBg = 'background:#E3F2FD;'; // halvány kék - bérlő saját vásárlás
-        rogzLabel = '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#BBDEFB;color:#1565C0;">Bérlő - saját</span>';
-      }
-    } else {
-      rowBg = isVendeg ? 'background:#FEF5F5;' : 'background:#F7FBF2;';
-      rogzLabel = isVendeg
-        ? '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#FCEBEB;color:#A32D2D;">Admin</span>'
-        : '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:#EAF3DE;color:#3B6D11;">Admin</span>';
-    }
-    return`<tr style="${rowBg}">
-      <td>${e.datum}</td>
-      <td>${tipusLabel}</td>
-      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${b?b.nev:'?'}">${b?b.nev:'?'}</td>
-      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p?p.kat:''}">${p?p.kat:''}</td>
-      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p?p.nev:'?'}">${p?p.nev:'?'}</td>
-      <td class="td-mono">${e.db} db</td>
-      <td class="td-mono">${fmt(e.ar)}</td>
-      <td class="td-mono">${fmt(bev)}</td>
-      <td class="td-mono">${fmt(kolt)}</td>
-      <td class="td-mono ${has>=0?'profit-pos':'profit-neg'}">${isVendeg?'Jut: '+fmt(e.jutalekOsszeg||0):fmt(has)}</td>
-      <td>${rogzLabel}</td>
-      <td><button class="btn btn-sm btn-danger" onclick="delNaplo(${e.id})" title="Törlés">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
-      </button></td>
-    </tr>`;}).join('');
-  const totBev=list.reduce((s,e)=>s+e.db*e.ar,0);
-  const totKolt=list.reduce((s,e)=>s+(e.besar!==undefined?e.besar:(products.find(x=>x.id===e.termekId)||{besar:0}).besar)*e.db,0);
-  const totJutalek=list.reduce((s,e)=>s+((e.tipus==='vendeg')?(e.jutalekOsszeg||0):0),0);
-  const totHas=totBev-totKolt-totJutalek;
-  document.getElementById('naplo-sum-bar').innerHTML=`
-    <div class="naplo-sum">
-      <span>Bevétel: <strong>${fmt(totBev)}</strong></span>
-      <span>Anyagköltség: <strong>${fmt(totKolt)}</strong></span>
-      <span>Bérlői jutalék: <strong>${fmt(totJutalek)}</strong></span>
-      <span class="${totHas>=0?'profit-pos':'profit-neg'}">Haszon: <strong>${fmt(totHas)}</strong></span>
+  const tableCard=document.querySelector('#tab-naplo .table-card');
+
+  if(!list.length){
+    if(tableCard) tableCard.innerHTML='<div class="empty-state" style="padding:40px;">Nincs adat a szűrőkre</div>';
+    document.getElementById('naplo-sum-bar').innerHTML='';
+    return;
+  }
+
+  // Csoportosítás: dátum (perc) + bérlő
+  const csoportok={};
+  list.forEach(e=>{
+    const b=berlok.find(x=>x.id===e.berloId);
+    const perc=e.datum.slice(0,16);
+    const key=perc+'||'+e.berloId;
+    if(!csoportok[key]) csoportok[key]={perc, berloNev:b?b.nev:'?', tetelek:[]};
+    csoportok[key].tetelek.push(e);
+  });
+
+  const keys=Object.keys(csoportok).sort((a,b)=>b.localeCompare(a));
+
+  const fmt2=n=>Math.round(n).toLocaleString('hu-HU').replace(/\s/g,'\u00a0')+'\u00a0Ft';
+
+  if(tableCard) tableCard.innerHTML = keys.map((key,idx)=>{
+    const cs=csoportok[key];
+    const nyitva=idx===0;
+    const csId='ncs'+idx;
+    const totBev=cs.tetelek.reduce((s,e)=>s+e.db*e.ar,0);
+    const rogz=cs.tetelek[0].rogzitette||'admin';
+    const headerBg=rogz==='berlo'?'background:#E3F2FD;':'background:var(--surface2);';
+
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">
+      <div onclick="toggleNcs('${csId}')" style="${headerBg}display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;">
+        <div style="font-weight:600;font-size:14px;">${cs.perc} · ${cs.berloNev}</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:var(--text2);">${cs.tetelek.length} tétel · <strong>${fmt2(totBev)}</strong></span>
+          <span id="${csId}-arrow" style="font-size:10px;color:var(--text3);">${nyitva?'▼':'▶'}</span>
+        </div>
+      </div>
+      <div id="${csId}" style="display:${nyitva?'block':'none'};">
+        ${cs.tetelek.map(e=>{
+          const p=products.find(x=>x.id===e.termekId);
+          const besar=e.besar!==undefined?e.besar:(p?p.besar:0);
+          const bev=e.db*e.ar,kolt=e.db*besar;
+          const isVendeg=(e.tipus||'berlo')==='vendeg';
+          const has=isVendeg?(bev-kolt-(e.jutalekOsszeg||0)):(bev-kolt);
+          const rogz=e.rogzitette||'admin';
+          let rowBg=rogz==='berlo'?(isVendeg?'background:#FFF8F0;':'background:#F0F7FF;'):(isVendeg?'background:#FEF5F5;':'background:#F7FBF2;');
+          return `<div style="${rowBg}padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-weight:500;font-size:13px;">${p?p.nev:'?'}</div>
+              <div style="font-size:11px;color:var(--text3);">${p?p.kat:''} · ${e.db} db × ${fmt2(e.ar)}</div>
+            </div>
+            <div style="text-align:right;display:flex;align-items:center;gap:8px;">
+              <div>
+                <div style="font-weight:600;font-size:13px;">${fmt2(bev)}</div>
+                <div style="font-size:11px;color:${has>=0?'var(--accent)':'var(--danger)'};">${isVendeg?'Jut: '+fmt2(e.jutalekOsszeg||0):fmt2(has)}</div>
+              </div>
+              <button class="btn btn-sm btn-danger" onclick="delNaplo(${e.id})" title="Törlés">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+              </button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
     </div>`;
+  }).join('');
+
+  // Összesítő
+  const totBev=list.reduce((s,e)=>s+e.db*e.ar,0);
+  const totKolt=list.reduce((s,e)=>s+e.db*(e.besar||0),0);
+  const totJut=list.filter(e=>e.tipus==='vendeg').reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
+  document.getElementById('naplo-sum-bar').innerHTML=
+    '<span>Bevétel: <strong>'+fmt2(totBev)+'</strong></span>' +
+    '<span>Anyagk.: <strong>'+fmt2(totKolt)+'</strong></span>' +
+    (totJut?'<span>Jutalék: <strong>'+fmt2(totJut)+'</strong></span>':'') +
+    '<span class="profit-pos">Haszon: <strong>'+fmt2(totBev-totKolt-totJut)+'</strong></span>';
 }
-function clearNaploFilter(){['n-tipus','n-berlo','n-tol','n-ig'].forEach(id=>document.getElementById(id).value='');renderNaplo();}
+
+function toggleNcs(id){
+  const el=document.getElementById(id);
+  const arrow=document.getElementById(id+'-arrow');
+  const open=el.style.display!=='none';
+  el.style.display=open?'none':'block';
+  arrow.textContent=open?'▶':'▼';
+}
+
+
 function delNaplo(id){
   if(!confirm('Biztosan törlöd ezt a tételt? 30 napig visszaállítható lesz a Lomtárból.')) return;
   const e = eladas.find(x=>x.id===id);
