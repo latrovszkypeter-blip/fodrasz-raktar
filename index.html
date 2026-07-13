@@ -1492,7 +1492,7 @@ function renderNaplo(){
   }).sort((a,b)=>b.datum.localeCompare(a.datum));
 
   const tbody=document.getElementById('naplo-tbody');
-  const tableCard=document.querySelector('#tab-naplo .table-card');
+  const tableCard=document.getElementById('naplo-card');
 
   if(!list.length){
     if(tableCard) tableCard.innerHTML='<div class="empty-state" style="padding:40px;">Nincs adat a szűrőkre</div>';
@@ -1523,12 +1523,15 @@ function renderNaplo(){
     const headerBg=rogz==='berlo'?'background:#E3F2FD;':'background:var(--surface2);';
 
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">
-      <div onclick="toggleNcs('${csId}')" style="${headerBg}display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;">
-        <div style="font-weight:600;font-size:14px;">${cs.perc} · ${cs.berloNev}</div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:12px;color:var(--text2);">${cs.tetelek.length} tétel · <strong>${fmt2(totBev)}</strong></span>
+      <div style="${headerBg}display:flex;justify-content:space-between;align-items:center;padding:12px 16px;">
+        <div onclick="toggleNcs('${csId}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">
           <span id="${csId}-arrow" style="font-size:10px;color:var(--text3);">${nyitva?'▼':'▶'}</span>
+          <span style="font-weight:600;font-size:14px;">${cs.perc} · ${cs.berloNev}</span>
+          <span style="font-size:12px;color:var(--text2);">${cs.tetelek.length} tétel · <strong>${fmt2(totBev)}</strong></span>
         </div>
+        <button class="btn btn-sm btn-danger" onclick="delNaploCsoport('${key}')" title="Csoport törlése">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+        </button>
       </div>
       <div id="${csId}" style="display:${nyitva?'block':'none'};">
         ${cs.tetelek.map(e=>{
@@ -1568,6 +1571,22 @@ function renderNaplo(){
     '<span>Anyagk.: <strong>'+fmt2(totKolt)+'</strong></span>' +
     (totJut?'<span>Jutalék: <strong>'+fmt2(totJut)+'</strong></span>':'') +
     '<span class="profit-pos">Haszon: <strong>'+fmt2(totBev-totKolt-totJut)+'</strong></span>';
+}
+
+function delNaploCsoport(key){
+  const perc = key.split('||')[0];
+  const bId = parseInt(key.split('||')[1]);
+  const torlendo = eladas.filter(e=>e.datum.slice(0,16)===perc && e.berloId===bId);
+  if(!torlendo.length) return;
+  if(!confirm('Biztosan törlöd az összes '+torlendo.length+' tételt ebből a csoportból? 30 napig visszaállítható lesz.')) return;
+  torlendo.forEach(e=>{
+    const p = products.find(x=>x.id===e.termekId);
+    if(p) p.keszlet += e.db;
+    lomtar.push({...e, tipus:'eladas', torolveDatum: new Date().toISOString().slice(0,10)});
+  });
+  eladas = eladas.filter(e=>!(e.datum.slice(0,16)===perc && e.berloId===bId));
+  renderNaplo();
+  saveToSheet();
 }
 
 function toggleNcs(id){
@@ -1785,7 +1804,6 @@ async function saveArazas(){
 
 function renderLomtar(){
   const div = document.getElementById('lomtar-lista');
-  // 30 napnál régebbiek automatikus törlése
   const hatar = new Date();
   hatar.setDate(hatar.getDate()-30);
   lomtar = lomtar.filter(x=>{
@@ -1799,41 +1817,32 @@ function renderLomtar(){
   div.innerHTML = lomtar.map((x,i)=>{
     const nap = x.torolveDatum;
     const maradt = Math.ceil((new Date(x.torolveDatum).getTime() + 30*24*60*60*1000 - Date.now()) / (24*60*60*1000));
+    const btn = `<button class="btn btn-sm btn-primary" onclick="visszaallitLomtar(${i})">Visszaállítás</button>`;
     if(x.tipus==='termek'){
       return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-weight:600;">${x.nev}</div>
-          <div style="font-size:12px;color:var(--text3);">Termék · Törölve: ${nap} · Még ${maradt} napig visszaállítható</div>
-        </div>
-        <button class="btn btn-sm btn-primary" onclick="visszaallitLomtar(${i})">Visszaállítás</button>
-      </div>`;
+        <div><div style="font-weight:600;">${x.nev}</div>
+        <div style="font-size:12px;color:var(--text3);">Termék · ${x.kat} · Törölve: ${nap} · Még ${maradt} nap</div></div>
+        ${btn}</div>`;
+    } else if(x.tipus==='eladas'){
+      const p = products.find(pr=>pr.id===x.termekId);
+      const b = berlok.find(bl=>bl.id===x.berloId);
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <div><div style="font-weight:600;">${p?p.nev:'?'} – ${b?b.nev:'?'}</div>
+        <div style="font-size:12px;color:var(--text3);">Eladás · ${x.datum} · ${x.db} db · ${fmt(x.ar)} · Törölve: ${nap} · Még ${maradt} nap</div></div>
+        ${btn}</div>`;
     } else if(x.tipus==='rendeles'){
       const b = berlok.find(bl=>bl.id===x.berloId);
       return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-weight:600;">${x.termekNev} – ${b?b.nev:'?'}</div>
-          <div style="font-size:12px;color:var(--text3);">Rendelési igény · ${x.datum} · ${x.db} db · Törölve: ${nap} · Még ${maradt} napig visszaállítható</div>
-        </div>
-        <button class="btn btn-sm btn-primary" onclick="visszaallitLomtar(${i})">Visszaállítás</button>
-      </div>`;
+        <div><div style="font-weight:600;">${x.termekNev} – ${b?b.nev:'?'}</div>
+        <div style="font-size:12px;color:var(--text3);">Rendelési igény · ${x.datum} · ${x.db} db · Törölve: ${nap} · Még ${maradt} nap</div></div>
+        ${btn}</div>`;
     } else if(x.tipus==='berlo'){
       return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-weight:600;">${x.nev}</div>
-          <div style="font-size:12px;color:var(--text3);">Bérlő · Törölve: ${nap} · Még ${maradt} napig visszaállítható</div>
-        </div>
-        <button class="btn btn-sm btn-primary" onclick="visszaallitLomtar(${i})">Visszaállítás</button>
-      </div>`;
-    } else {
-      const p = products.find(pr=>pr.id===x.termekId);
-      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-weight:600;">${p?p.nev:'?'} – ${x.db} db (${fmt(x.ar)})</div>
-          <div style="font-size:12px;color:var(--text3);">Eladás · ${x.datum} · Törölve: ${nap} · Még ${maradt} napig visszaállítható</div>
-        </div>
-        <button class="btn btn-sm btn-primary" onclick="visszaallitLomtar(${i})">Visszaállítás</button>
-      </div>`;
+        <div><div style="font-weight:600;">${x.nev}</div>
+        <div style="font-size:12px;color:var(--text3);">Bérlő · Törölve: ${nap} · Még ${maradt} nap</div></div>
+        ${btn}</div>`;
     }
+    return '';
   }).join('');
 }
 
@@ -1844,6 +1853,12 @@ function visszaallitLomtar(idx){
     const {tipus, torolveDatum, ...termek} = x;
     products.push(termek);
     alert(x.nev+' visszaállítva a készletbe!');
+  } else if(x.tipus==='eladas'){
+    const {tipus, torolveDatum, ...e} = x;
+    eladas.push(e);
+    const p = products.find(pr=>pr.id===e.termekId);
+    if(p) p.keszlet -= e.db;
+    alert('Eladás visszaállítva a naplóba!');
   } else if(x.tipus==='rendeles'){
     const {tipus, torolveDatum, ...rendeles} = x;
     rendelesek.push(rendeles);
@@ -1852,17 +1867,12 @@ function visszaallitLomtar(idx){
     const {tipus, torolveDatum, ...berlo} = x;
     berlok.push(berlo);
     alert(x.nev+' bérlő visszaállítva!');
-  } else {
-    const {tipus, torolveDatum, ...e} = x;
-    eladas.push(e);
-    const p = products.find(pr=>pr.id===e.termekId);
-    if(p) p.keszlet -= e.db;
-    alert('Eladás visszaállítva a naplóba!');
   }
   lomtar.splice(idx,1);
   renderLomtar();
   saveToSheet();
 }
+
 
 function renderRendeles(){
   const bId = parseInt(document.getElementById('r-berlo').value)||0;
