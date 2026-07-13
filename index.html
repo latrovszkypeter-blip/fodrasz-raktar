@@ -1808,44 +1808,28 @@ function renderRendeles(){
         </select>
       </div>
       <div id="${csId}" style="display:${nyitva?'block':'none'};">
-        <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead><tr style="background:var(--surface2);">
-            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);">Idő</th>
-            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);">Kategória</th>
-            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);">Termék</th>
-            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);">Db</th>
-            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);">Megjegyzés</th>
-            <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);">Státusz</th>
-            <th style="padding:8px 12px;width:40px;"></th>
-          </tr></thead>
-          <tbody>
-            ${cs.tetelek.map(r=>{
-              const p = products.find(x=>x.id===r.termekId);
-              const nev = p?p.nev:r.termekNev;
-              const kat = p?p.kat:'–';
-              const szabad = !p && r.termekNev;
-              return `<tr style="border-top:1px solid var(--border);">
-                <td style="padding:9px 12px;">${r.datum.slice(11,16)}</td>
-                <td style="padding:9px 12px;color:var(--text2);font-size:12px;">${kat}</td>
-                <td style="padding:9px 12px;font-weight:500;">${nev}${szabad?'<span style="font-size:11px;color:var(--text3);margin-left:4px;">(szabad)</span>':''}</td>
-                <td style="padding:9px 12px;">${r.db} db</td>
-                <td style="padding:9px 12px;color:var(--text2);font-size:12px;">${r.megjegyzes||''}</td>
-                <td style="padding:9px 12px;">
-                  <select class="status-select" style="${statBgFn(r.statusz)}font-weight:500;" onchange="setRendelesStatusz(${r.id},this.value)">
-                    <option value="fuggoben" ${r.statusz==='fuggoben'?'selected':''}>⏳ Függőben</option>
-                    <option value="megrendelve" ${r.statusz==='megrendelve'?'selected':''}>📦 Megrendelve</option>
-                    <option value="megerkezett" ${r.statusz==='megerkezett'?'selected':''}>✅ Megérkezett</option>
-                  </select>
-                </td>
-                <td style="padding:9px 12px;">
-                  <button class="btn btn-sm btn-danger" onclick="delRendeles(${r.id})" title="Törlés">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
-                  </button>
-                </td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
+        ${cs.tetelek.map(r=>{
+          const p = products.find(x=>x.id===r.termekId);
+          const nev = p?p.nev:r.termekNev;
+          const kat = p?p.kat:'–';
+          const szabad = !p && r.termekNev;
+          return `<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nev}${szabad?'<span style="font-size:11px;color:var(--text3);"> (szabad)</span>':''}</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:2px;">${kat} · ${r.datum.slice(11,16)} · ${r.db} db${r.megjegyzes?' · '+r.megjegyzes:''}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+              <select class="status-select" style="${statBgFn(r.statusz)}font-weight:500;font-size:12px;" onchange="setRendelesStatusz(${r.id},this.value)">
+                <option value="fuggoben" ${r.statusz==='fuggoben'?'selected':''}>⏳ Függőben</option>
+                <option value="megrendelve" ${r.statusz==='megrendelve'?'selected':''}>📦 Megrendelve</option>
+                <option value="megerkezett" ${r.statusz==='megerkezett'?'selected':''}>✅ Megérkezett</option>
+              </select>
+              <button class="btn btn-sm btn-danger" onclick="delRendeles(${r.id})" title="Törlés">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+              </button>
+            </div>
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
   }).join('');
