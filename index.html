@@ -2133,21 +2133,21 @@ function setJutalekStatusz(eladasId, ujStatusz){
 
 // Automatikus frissítés ha az oldal előtérbe kerül
 document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState === 'visible'){
+  if(document.visibilityState === 'visible' && !kosar.length){
     loadFromSheet(true);
   }
 });
 
-// Automatikus frissítés 30 másodpercenként
+// Automatikus frissítés 30 másodpercenként - csak ha a kosár üres
 setInterval(function(){
-  if(document.visibilityState === 'visible' && !isLoading){
+  if(document.visibilityState === 'visible' && !isLoading && !kosar.length){
     loadFromSheet(true);
   }
 }, 30000);
 
-// Focus esemény (böngésző fülre visszaváltáskor)
+// Focus esemény - csak ha a kosár üres
 window.addEventListener('focus', function(){
-  if(!isLoading) loadFromSheet(true);
+  if(!isLoading && !kosar.length) loadFromSheet(true);
 });
 
 
