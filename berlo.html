@@ -851,6 +851,16 @@ function bRenderNaplo(){
 // JUTALÉK
 
 function brInit(){
+  // Mentett rendelési kosár visszatöltése (pl. ha bezárult az oldal)
+  if(!brKosar.length){
+    try{
+      const mentett = localStorage.getItem('br_kosar_mentett');
+      if(mentett){
+        const items = JSON.parse(mentett);
+        if(items.length){ brKosar = items; brRenderKosar(); }
+      }
+    } catch(e){}
+  }
   // Kategória lista feltöltése
   const KAT_ORDER = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA','ACIDIC BONDING CONCENTRATE','ACIDIC BONDING CONCENTRATE CURLS','ACIDIC COLOR GLOSS','ACIDIC GROW FULL SYSTEM','ALL SOFT','ALL SOFT MEGA CURLS','AMINO MINT','BLOND','CERAFILL','EXTREME','FRIZZ DISMISS','HIGH BRIGHT','VOLUME INJECTION','ONE UNITED','SCALP RELIEF','AMINEXIL','Refill','REDKEN BREWS','STYLING'];
   const allKats = [...new Set(products.map(p=>p.kat))].sort(function(a,b){
@@ -884,6 +894,7 @@ function brKosarba(){
   const termekNev = p ? p.nev : szabadszoveg;
   const kat = p ? p.kat : '';
   brKosar.push({ termekId, termekNev, kat, db, megjegyzes });
+  try{ localStorage.setItem('br_kosar_mentett', JSON.stringify(brKosar)); } catch(e){}
   brRenderKosar();
   document.getElementById('br-termek').value = '';
   document.getElementById('br-szabadszoveg').value = '';
@@ -905,7 +916,11 @@ function brRenderKosar(){
   }).join('');
 }
 
-function brKosarTorles(i){ brKosar.splice(i,1); brRenderKosar(); }
+function brKosarTorles(i){
+  brKosar.splice(i,1);
+  try{ localStorage.setItem('br_kosar_mentett', JSON.stringify(brKosar)); } catch(e){}
+  brRenderKosar();
+}
 
 function brLeadas(){
   if(!brKosar.length){ alert('A kosár üres!'); return; }
@@ -921,6 +936,7 @@ function brLeadas(){
   });
   berloMentes([], ujRendelesek, []).then(function(){
     brKosar = [];
+    try{ localStorage.removeItem('br_kosar_mentett'); } catch(e){}
     brRenderKosar();
     alert('Rendelési igény leadva!');
     brRenderSajat();

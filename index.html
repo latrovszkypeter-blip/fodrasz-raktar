@@ -528,7 +528,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     <div id="kosar-wrap" style="display:none;margin-top:16px;">
       <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
         <span>🛒 Kosár</span>
-        <button class="btn btn-sm" onclick="kosar=[];renderKosar()">Kosár ürítése</button>
+        <button class="btn btn-sm" onclick="kosar=[];try{localStorage.removeItem('kosar_mentett')}catch(e){};renderKosar()">Kosár ürítése</button>
       </div>
       <div id="kosar-lista"></div>
       <div id="kosar-osszeg" style="background:var(--surface2);border-radius:var(--radius);padding:12px 16px;margin-top:8px;font-size:13px;"></div>
@@ -1470,6 +1470,7 @@ async function kosobaTesz(){
     p.keszlet -= db;
     eladas.push(uj);
     kosar.push({ berloId, termekId, db, ar, besar: p.besar, megjegyzes, tipus: currentEladasTipus, p, eladasId: uj.id });
+    try{ localStorage.setItem('kosar_mentett', JSON.stringify(kosar.map(function(k){return {berloId:k.berloId,termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus,eladasId:k.eladasId};}))); } catch(e){}
     renderKosar();
     showSyncStatus('Mentve ✓', false);
   } catch(err){
@@ -1536,12 +1537,14 @@ async function kosarTorles(i){
       const p = products.find(x=>x.id===k.termekId);
       if(p) p.keszlet += k.db;
       kosar.splice(i,1);
+      try{ localStorage.setItem('kosar_mentett', JSON.stringify(kosar.map(function(k){return {berloId:k.berloId,termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus,eladasId:k.eladasId};}))); } catch(e){}
       renderKosar();
     });
     if(!ok) return;
   } else {
-    // Régi, mentetlen kosártétel (pl. localStorage-ból visszatöltve ID nélkül)
+    // Régi, mentetlen kosártétel (ID nélkül) - csak a listából vesszük ki
     kosar.splice(i,1);
+    try{ localStorage.setItem('kosar_mentett', JSON.stringify(kosar.map(function(k){return {berloId:k.berloId,termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus,eladasId:k.eladasId};}))); } catch(e){}
     renderKosar();
   }
 }
