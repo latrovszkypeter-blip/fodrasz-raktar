@@ -1502,9 +1502,14 @@ function renderKosar(){
     const isVendeg = k.tipus==='vendeg';
     const jutalek = isVendeg ? Math.round(bev*JUTALEK_PCT/100) : 0;
     const haszon = bev - kolt - jutalek;
+    const b = berlok.find(function(x){return x.id===k.berloId;});
+    const tipusCimke = isVendeg
+      ? '<span style="background:#FDECEC;color:#C0392B;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;">Vendégeladás</span>'
+      : '<span style="background:#EAF6E9;color:#2E7D32;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;">Bérlőnek eladás</span>';
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;font-size:13px;">' +
       '<div>' +
-        '<div style="font-weight:600;">'+k.p.nev+'</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-weight:600;">'+k.p.nev+'</span>'+tipusCimke+'</div>' +
+        '<div style="color:var(--text2);font-size:12px;margin-top:2px;"><strong>Vevő: '+(b?b.nev:'?')+'</strong></div>' +
         '<div style="color:var(--text3);font-size:11px;margin-bottom:2px;">'+k.p.kat+'</div>' +
         '<div style="color:var(--text3);font-size:12px;">'+k.db+' db × '+fmt(k.ar)+' = <strong>'+fmt(bev)+'</strong>'+(isVendeg?' · Jutalék: '+fmt(jutalek):' · Haszon: '+fmt(haszon))+'</div>' +
       '</div>' +
@@ -1597,7 +1602,7 @@ function renderNaplo(){
   list.forEach(e=>{
     const b=berlok.find(x=>x.id===e.berloId);
     const perc=e.datum.slice(0,16);
-    const key=perc+'||'+e.berloId;
+    const key=perc+'||'+e.berloId+'||'+(e.rogzitette||'admin');
     if(!csoportok[key]) csoportok[key]={perc, berloNev:b?b.nev:'?', tetelek:[]};
     csoportok[key].tetelek.push(e);
   });
@@ -1613,12 +1618,16 @@ function renderNaplo(){
     const totBev=cs.tetelek.reduce((s,e)=>s+e.db*e.ar,0);
     const rogz=cs.tetelek[0].rogzitette||'admin';
     const headerBg=rogz==='berlo'?'background:#E3F2FD;':'background:var(--surface2);';
+    const rogzCimke = rogz==='berlo'
+      ? '<span style="background:#D6E9FB;color:#1565C0;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;">Bérlő rögzítette</span>'
+      : '<span style="background:#E8E8E8;color:#444;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;">Admin rögzítette</span>';
 
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">
       <div style="${headerBg}display:flex;justify-content:space-between;align-items:center;padding:12px 16px;">
-        <div onclick="toggleNcs('${csId}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;">
+        <div onclick="toggleNcs('${csId}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;flex-wrap:wrap;">
           <span id="${csId}-arrow" style="font-size:10px;color:var(--text3);">${nyitva?'▼':'▶'}</span>
           <span style="font-weight:600;font-size:14px;">${cs.perc} · ${cs.berloNev}</span>
+          ${rogzCimke}
           <span style="font-size:12px;color:var(--text2);">${cs.tetelek.length} tétel · <strong>${fmt2(totBev)}</strong></span>
         </div>
         <button class="btn btn-sm btn-danger" onclick="delNaploCsoport('${key}')" title="Csoport törlése">
@@ -1634,9 +1643,16 @@ function renderNaplo(){
           const has=isVendeg?(bev-kolt-(e.jutalekOsszeg||0)):(bev-kolt);
           const rogz=e.rogzitette||'admin';
           let rowBg=rogz==='berlo'?(isVendeg?'background:#FFF8F0;':'background:#F0F7FF;'):(isVendeg?'background:#FEF5F5;':'background:#F7FBF2;');
-          return `<div style="${rowBg}padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-            <div>
-              <div style="font-weight:500;font-size:13px;">${p?p.nev:'?'}</div>
+          // Egyértelmű címke: KI rögzítette és MILYEN eladás
+          let tipusSzoveg, tipusSzin, tipusHatter;
+          if(rogz==='berlo' && isVendeg){ tipusSzoveg='Bérlő · Vendégeladás'; tipusSzin='#B26A00'; tipusHatter='#FDEBD0'; }
+          else if(rogz==='berlo'){ tipusSzoveg='Bérlő · Saját vásárlás'; tipusSzin='#1565C0'; tipusHatter='#D6E9FB'; }
+          else if(isVendeg){ tipusSzoveg='Admin · Vendégeladás'; tipusSzin='#C0392B'; tipusHatter='#FDECEC'; }
+          else { tipusSzoveg='Admin · Bérlőnek eladás'; tipusSzin='#2E7D32'; tipusHatter='#EAF6E9'; }
+          const soriCimke = '<span style="background:'+tipusHatter+';color:'+tipusSzin+';font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap;">'+tipusSzoveg+'</span>';
+          return `<div style="${rowBg}padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <div style="min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-weight:500;font-size:13px;">${p?p.nev:'?'}</span>${soriCimke}</div>
               <div style="font-size:11px;color:var(--text3);">${p?p.kat:''} · ${e.db} db × ${fmt2(e.ar)}</div>
             </div>
             <div style="text-align:right;display:flex;align-items:center;gap:8px;">
@@ -1668,9 +1684,11 @@ function renderNaplo(){
 }
 
 async function delNaploCsoport(key){
-  const perc = key.split('||')[0];
-  const bId = parseInt(key.split('||')[1]);
-  const torlendo = eladas.filter(e=>e.datum.slice(0,16)===perc && e.berloId===bId);
+  const reszek = key.split('||');
+  const perc = reszek[0];
+  const bId = parseInt(reszek[1]);
+  const rogz = reszek[2] || 'admin';
+  const torlendo = eladas.filter(e=>e.datum.slice(0,16)===perc && e.berloId===bId && (e.rogzitette||'admin')===rogz);
   if(!torlendo.length) return;
   if(!confirm('Biztosan törlöd az összes '+torlendo.length+' tételt ebből a csoportból? 30 napig visszaállítható lesz.')) return;
   // A szerver végzi: sorok lomtárba + törlés + készlet visszaállítás, atomikusan
@@ -1686,7 +1704,7 @@ async function delNaploCsoport(key){
       const p = products.find(x=>x.id===e.termekId);
       if(p) p.keszlet += e.db;
     });
-    eladas = eladas.filter(e=>!(e.datum.slice(0,16)===perc && e.berloId===bId));
+    eladas = eladas.filter(e=>!(e.datum.slice(0,16)===perc && e.berloId===bId && (e.rogzitette||'admin')===rogz));
     renderNaplo();
     loadFromSheet(true); // lomtár frissítése a szerverről
   });
