@@ -972,19 +972,25 @@ async function apiCall(action, payload){
 async function apiMuvelet(action, payload, onSuccess){
   isSaving = true;
   showSyncStatus('Mentés...', false);
+  let data = null;
   try{
-    const data = await apiCall(action, payload);
-    if(onSuccess) onSuccess(data);
-    showSyncStatus('Mentve ✓', false);
-    return data;
+    data = await apiCall(action, payload);
   }catch(err){
     console.error(err);
+    isSaving = false;
     showSyncStatus('Mentési hiba – ellenőrizd a kapcsolatot!', true);
     alert('A művelet mentése nem sikerült!\n\n' + err.message + '\n\nEllenőrizd az internetkapcsolatot és próbáld újra.');
     return null;
-  } finally {
-    isSaving = false;
   }
+  isSaving = false;
+  showSyncStatus('Mentve ✓', false);
+  // A mentés SIKERÜLT. Ha a képernyő frissítésében hiba van,
+  // az nem adatvesztés - csak a konzolba írjuk, nem ijesztgetjük vele a felhasználót.
+  if(onSuccess){
+    try{ onSuccess(data); }
+    catch(uiErr){ console.error('Megjelenítési hiba (az adat elmentve):', uiErr); }
+  }
+  return data;
 }
 
 // KÉZI BIZTONSÁGI MENTÉS - teljes másolat készül a Google Drive-ra
@@ -1580,7 +1586,6 @@ function renderNaplo(){
 
   if(!list.length){
     if(tableCard) tableCard.innerHTML='<div class="empty-state" style="padding:40px;">Nincs adat a szűrőkre</div>';
-    document.getElementById('naplo-sum-bar').innerHTML='';
     return;
   }
 
@@ -1646,15 +1651,17 @@ function renderNaplo(){
     </div>`;
   }).join('');
 
-  // Összesítő
+  // JAVÍTVA: az összesítő sáv a generált tartalom RÉSZE - korábban a
+  // renderelés megsemmisítette a naplo-sum-bar elemet, ami hibát dobott
   const totBev=list.reduce((s,e)=>s+e.db*e.ar,0);
   const totKolt=list.reduce((s,e)=>s+e.db*(e.besar||0),0);
   const totJut=list.filter(e=>e.tipus==='vendeg').reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
-  document.getElementById('naplo-sum-bar').innerHTML=
+  const sumBar = '<div class="naplo-sum">' +
     '<span>Bevétel: <strong>'+fmt2(totBev)+'</strong></span>' +
     '<span>Anyagk.: <strong>'+fmt2(totKolt)+'</strong></span>' +
     (totJut?'<span>Jutalék: <strong>'+fmt2(totJut)+'</strong></span>':'') +
-    '<span class="profit-pos">Haszon: <strong>'+fmt2(totBev-totKolt-totJut)+'</strong></span>';
+    '<span class="profit-pos">Haszon: <strong>'+fmt2(totBev-totKolt-totJut)+'</strong></span></div>';
+  if(tableCard) tableCard.innerHTML += sumBar;
 }
 
 async function delNaploCsoport(key){
@@ -1664,10 +1671,12 @@ async function delNaploCsoport(key){
   if(!torlendo.length) return;
   if(!confirm('Biztosan törlöd az összes '+torlendo.length+' tételt ebből a csoportból? 30 napig visszaállítható lesz.')) return;
   // A szerver végzi: sorok lomtárba + törlés + készlet visszaállítás, atomikusan
+  const csoportId = 'cs' + Date.now(); // az együtt törölt tételek együtt maradnak a lomtárban
   await apiMuvelet('torles', {
     tipus: 'eladas',
     ids: torlendo.map(e=>e.id),
     lomtarba: true,
+    csoport: csoportId,
     keszletVissza: torlendo.map(e=>({ termekId: e.termekId, delta: e.db }))
   }, function(){
     torlendo.forEach(e=>{
@@ -1902,6 +1911,37 @@ async function saveArazas(){
   }
 }
 
+function lomtarTetelSor(x, benneCsoportban){
+  const nap = x.torolveDatum;
+  const maradt = Math.max(0, Math.ceil((new Date(x.torolveDatum).getTime() + 30*24*60*60*1000 - Date.now()) / (24*60*60*1000)));
+  const btn = `<button class="btn btn-sm btn-primary" onclick="visszaallitLomtar(${x.lomtarId})">Visszaállítás</button>`;
+  const stilus = benneCsoportban
+    ? 'padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;'
+    : 'background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;';
+  let cim='', meta='';
+  if(x.tipus==='termek'){
+    cim = x.nev;
+    meta = `Termék · ${x.kat}`;
+  } else if(x.tipus==='eladas'){
+    const p = products.find(pr=>pr.id===x.termekId);
+    const b = berlok.find(bl=>bl.id===x.berloId);
+    cim = `${p?p.nev:(x.nev||'?')}${benneCsoportban?'':' – '+(b?b.nev:'?')}`;
+    meta = `Eladás · ${x.datum} · ${x.db} db · ${fmt(x.ar)}`;
+  } else if(x.tipus==='rendeles'){
+    const b = berlok.find(bl=>bl.id===x.berloId);
+    cim = `${x.termekNev}${benneCsoportban?'':' – '+(b?b.nev:'?')}`;
+    meta = `Rendelési igény · ${x.datum} · ${x.db} db`;
+  } else if(x.tipus==='berlo'){
+    cim = x.nev;
+    meta = 'Bérlő';
+  } else return '';
+  const idoInfo = benneCsoportban ? '' : ` · Törölve: ${nap} · Még ${maradt} nap`;
+  return `<div style="${stilus}">
+    <div style="min-width:0;"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;">${cim}</div>
+    <div style="font-size:12px;color:var(--text3);">${meta}${idoInfo}</div></div>
+    ${btn}</div>`;
+}
+
 function renderLomtar(){
   const div = document.getElementById('lomtar-lista');
   const hatar = new Date();
@@ -1914,49 +1954,85 @@ function renderLomtar(){
     div.innerHTML='<div class="empty-state" style="padding:40px;">A lomtár üres</div>';
     return;
   }
-  div.innerHTML = lomtar.map((x,i)=>{
-    const nap = x.torolveDatum;
-    const maradt = Math.ceil((new Date(x.torolveDatum).getTime() + 30*24*60*60*1000 - Date.now()) / (24*60*60*1000));
-    const btn = `<button class="btn btn-sm btn-primary" onclick="visszaallitLomtar(${i})">Visszaállítás</button>`;
-    if(x.tipus==='termek'){
-      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-weight:600;">${x.nev}</div>
-        <div style="font-size:12px;color:var(--text3);">Termék · ${x.kat} · Törölve: ${nap} · Még ${maradt} nap</div></div>
-        ${btn}</div>`;
-    } else if(x.tipus==='eladas'){
-      const p = products.find(pr=>pr.id===x.termekId);
-      const b = berlok.find(bl=>bl.id===x.berloId);
-      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-weight:600;">${p?p.nev:'?'} – ${b?b.nev:'?'}</div>
-        <div style="font-size:12px;color:var(--text3);">Eladás · ${x.datum} · ${x.db} db · ${fmt(x.ar)} · Törölve: ${nap} · Még ${maradt} nap</div></div>
-        ${btn}</div>`;
-    } else if(x.tipus==='rendeles'){
-      const b = berlok.find(bl=>bl.id===x.berloId);
-      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-weight:600;">${x.termekNev} – ${b?b.nev:'?'}</div>
-        <div style="font-size:12px;color:var(--text3);">Rendelési igény · ${x.datum} · ${x.db} db · Törölve: ${nap} · Még ${maradt} nap</div></div>
-        ${btn}</div>`;
-    } else if(x.tipus==='berlo'){
-      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-weight:600;">${x.nev}</div>
-        <div style="font-size:12px;color:var(--text3);">Bérlő · Törölve: ${nap} · Még ${maradt} nap</div></div>
-        ${btn}</div>`;
+
+  // Csoportosítás: az együtt törölt tételek (azonos csoport azonosító) egy kártyán
+  const csoportok = {};   // csoportId -> tételek
+  const egyediek = [];    // csoport nélküli tételek
+  lomtar.forEach(x=>{
+    if(x.csoport){
+      if(!csoportok[x.csoport]) csoportok[x.csoport] = [];
+      csoportok[x.csoport].push(x);
+    } else {
+      egyediek.push(x);
     }
-    return '';
-  }).join('');
+  });
+
+  let html = '';
+
+  // Csoportkártyák (legújabb elöl - a csoportId időbélyeg alapú)
+  Object.keys(csoportok).sort((a,b)=>b.localeCompare(a)).forEach((csId, idx)=>{
+    const tetelek = csoportok[csId];
+    if(tetelek.length === 1){
+      // Egytételes "csoport" - sima kártyaként mutatjuk
+      egyediek.push(tetelek[0]);
+      return;
+    }
+    const elso = tetelek[0];
+    const maradt = Math.max(0, Math.ceil((new Date(elso.torolveDatum).getTime() + 30*24*60*60*1000 - Date.now()) / (24*60*60*1000)));
+    const b = berlok.find(bl=>bl.id===elso.berloId);
+    const tipusNev = elso.tipus==='eladas' ? 'Eladások' : elso.tipus==='rendeles' ? 'Rendelési igények' : 'Tételek';
+    const totErtek = elso.tipus==='eladas' ? tetelek.reduce((s,e)=>s+(e.db*e.ar||0),0) : 0;
+    const bodyId = 'lcs-' + csId;
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">
+      <div style="background:var(--surface2);display:flex;justify-content:space-between;align-items:center;padding:12px 16px;gap:10px;flex-wrap:wrap;">
+        <div onclick="toggleLcs('${bodyId}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:200px;">
+          <span id="${bodyId}-arrow" style="font-size:10px;color:var(--text3);">▶</span>
+          <div>
+            <div style="font-weight:600;font-size:14px;">${tipusNev} · ${tetelek.length} tétel${b?' · '+b.nev:''}${totErtek?' · '+fmt(totErtek):''}</div>
+            <div style="font-size:12px;color:var(--text3);">Együtt törölve: ${elso.torolveDatum} · Még ${maradt} nap</div>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="visszaallitLomtarCsoport('${csId}')">Mind visszaállítása</button>
+      </div>
+      <div id="${bodyId}" style="display:none;">
+        ${tetelek.map(x=>lomtarTetelSor(x, true)).join('')}
+      </div>
+    </div>`;
+  });
+
+  // Egyedi tételek (törlés dátuma szerint, legújabb elöl)
+  egyediek.sort((a,b)=>(b.lomtarId||0)-(a.lomtarId||0));
+  html += egyediek.map(x=>lomtarTetelSor(x, false)).join('');
+
+  div.innerHTML = html;
 }
 
-async function visszaallitLomtar(idx){
-  const x = lomtar[idx];
+function toggleLcs(id){
+  const el = document.getElementById(id);
+  const arrow = document.getElementById(id+'-arrow');
+  if(!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if(arrow) arrow.textContent = open ? '▶' : '▼';
+}
+
+async function visszaallitLomtarCsoport(csId){
+  const tetelek = lomtar.filter(x=>x.csoport===csId);
+  if(!tetelek.length) return;
+  if(!confirm('Visszaállítod mind a '+tetelek.length+' tételt?')) return;
+  await apiMuvelet('lomtarVissza', { lomtarIds: tetelek.map(x=>x.lomtarId) }, function(data){
+    alert((data.visszaallitva||tetelek.length)+' tétel visszaállítva!');
+  });
+  await loadFromSheet(true);
+  renderLomtar();
+}
+
+async function visszaallitLomtar(lomtarId){
+  const x = lomtar.find(t=>t.lomtarId===lomtarId);
   if(!x) return;
-  if(!x.lomtarId){
-    alert('Ez a tétel még a régi lomtárból származik. Frissítsd az oldalt (a migráció automatikusan megtörténik), majd próbáld újra!');
-    return;
-  }
   // A visszaállítást a szerver végzi: visszateszi a megfelelő lapra,
   // eladásnál a készletet újra levonja, és törli a lomtárból.
-  await apiMuvelet('lomtarVissza', { lomtarId: x.lomtarId }, function(){
-    const nevek = { termek:' termék', eladas:'Eladás', rendeles:'Rendelési igény', berlo:' bérlő' };
+  await apiMuvelet('lomtarVissza', { lomtarId: lomtarId }, function(){
     if(x.tipus==='eladas') alert('Eladás visszaállítva a naplóba!');
     else if(x.tipus==='rendeles') alert('Rendelési igény visszaállítva!');
     else alert((x.nev||'Tétel')+' visszaállítva!');
@@ -2070,7 +2146,8 @@ async function delRendelesCsoport(key){
   const torlendo = rendelesek.filter(r=>String(r.berloId)===String(bId) && r.datum.slice(0,10)===nap);
   if(!torlendo.length) return;
   if(!confirm('Biztosan törlöd az összes '+torlendo.length+' tételt ebből a rendelésből? 30 napig visszaállítható lesz.')) return;
-  await apiMuvelet('torles', { tipus: 'rendeles', ids: torlendo.map(r=>r.id), lomtarba: true }, function(){
+  const csoportId = 'cs' + Date.now();
+  await apiMuvelet('torles', { tipus: 'rendeles', ids: torlendo.map(r=>r.id), lomtarba: true, csoport: csoportId }, function(){
     rendelesek = rendelesek.filter(r=>!(String(r.berloId)===String(bId) && r.datum.slice(0,10)===nap));
     renderRendeles();
     loadFromSheet(true);
