@@ -1377,8 +1377,11 @@ function renderEladasForm(){
       const mentett = localStorage.getItem('kosar_mentett');
       if(mentett){
         const items = JSON.parse(mentett);
-        if(items.length){
-          items.forEach(function(k){
+        // A régi (azonnal mentős) rendszerből maradt tételeket kihagyjuk:
+        // azok már a Sheetben vannak, újra rögzítésük duplikálná őket
+        const ujak = items.filter(function(k){ return !k.eladasId; });
+        if(ujak.length){
+          ujak.forEach(function(k){
             const p = products.find(function(x){return x.id===k.termekId;});
             if(p) kosar.push({...k, p});
           });
@@ -1445,42 +1448,18 @@ async function kosobaTesz(){
   if(db<=0){ alert('Adj meg mennyiséget!'); return; }
   const p = products.find(x=>x.id===termekId);
   if(!p) return;
-  if(p.keszlet < db){ alert('Nincs elegendő készlet! ('+p.keszlet+' db van)'); return; }
-
-  // Azonnal rögzítjük: a szerver HOZZÁFŰZI az eladást és kiosztja az ID-t
-  // (nem írjuk felül a teljes adatbázist - más eszközök adatai biztonságban)
-  const bevetel = db*ar;
-  const jutalekOsszeg = currentEladasTipus==='vendeg' ? Math.round(bevetel*JUTALEK_PCT/100) : 0;
-  const uj = {
-    id: 0, berloId, termekId, db, ar, besar: p.besar,
-    datum, megjegyzes, tipus: currentEladasTipus, jutalekOsszeg,
-    jutalekStatusz: currentEladasTipus==='vendeg' ? 'fuggoben' : '',
-    rogzitette: 'admin'
-  };
-
-  isSaving = true;
-  showSyncStatus('Mentés...', false);
-  try{
-    const data = await apiCall('rogzit', {
-      ujEladasok: [uj],
-      keszletValtozas: [{ termekId: termekId, delta: -db }]
-    });
-    uj.id = (data.eladasIds && data.eladasIds[0]) || 0;
-    // Csak sikeres mentés UTÁN frissítjük a helyi állapotot
-    p.keszlet -= db;
-    eladas.push(uj);
-    kosar.push({ berloId, termekId, db, ar, besar: p.besar, megjegyzes, tipus: currentEladasTipus, p, eladasId: uj.id });
-    try{ localStorage.setItem('kosar_mentett', JSON.stringify(kosar.map(function(k){return {berloId:k.berloId,termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus,eladasId:k.eladasId};}))); } catch(e){}
-    renderKosar();
-    showSyncStatus('Mentve ✓', false);
-  } catch(err){
-    showSyncStatus('Mentési hiba!', true);
-    console.error(err);
-    alert('Az eladás mentése NEM sikerült, nem került rögzítésre!\n\nEllenőrizd az internetkapcsolatot és próbáld újra.');
+  // Készletellenőrzés: a kosárban már bent lévő azonos termékeket is beszámítjuk
+  const kosarban = kosar.filter(k=>k.termekId===termekId).reduce((s,k)=>s+k.db,0);
+  if(p.keszlet - kosarban < db){
+    alert('Nincs elegendő készlet! ('+p.keszlet+' db van'+(kosarban?', ebből '+kosarban+' db már a kosárban':'')+')');
     return;
-  } finally {
-    isSaving = false;
   }
+
+  // A kosár CSAK helyben gyűlik (a böngésző el is menti biztonságból).
+  // A Sheetbe mentés a "Rögzítés" gombnál történik, egyetlen gyors csomagban.
+  kosar.push({ berloId, termekId, db, ar, besar: p.besar, megjegyzes, tipus: currentEladasTipus, datum, p });
+  mentKosarLocal();
+  renderKosar();
 
   document.getElementById('e-termek').value = '';
   document.getElementById('e-kat').value = '';
@@ -1489,6 +1468,14 @@ async function kosobaTesz(){
   document.getElementById('e-ar-hint').textContent = '';
   document.getElementById('e-megjegyzes').value = '';
   updateEladasCalc();
+}
+
+function mentKosarLocal(){
+  try{
+    localStorage.setItem('kosar_mentett', JSON.stringify(kosar.map(function(k){
+      return {berloId:k.berloId,termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus,datum:k.datum};
+    })));
+  } catch(e){}
 }
 
 function renderKosar(){
@@ -1529,39 +1516,61 @@ function renderKosar(){
     '</div>';
 }
 
-async function kosarTorles(i){
-  const k = kosar[i];
-  if(k.eladasId){
-    // Szerver oldali törlés: csak ezt az egy eladást vonja vissza,
-    // más adathoz nem nyúl. Lomtárba nem kerül (csak visszavonás).
-    const ok = await apiMuvelet('torles', {
-      tipus: 'eladas', ids: [k.eladasId], lomtarba: false,
-      keszletVissza: [{ termekId: k.termekId, delta: k.db }]
-    }, function(){
-      eladas = eladas.filter(e=>e.id!==k.eladasId);
-      const p = products.find(x=>x.id===k.termekId);
-      if(p) p.keszlet += k.db;
-      kosar.splice(i,1);
-      try{ localStorage.setItem('kosar_mentett', JSON.stringify(kosar.map(function(k){return {berloId:k.berloId,termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus,eladasId:k.eladasId};}))); } catch(e){}
-      renderKosar();
-    });
-    if(!ok) return;
-  } else {
-    // Régi, mentetlen kosártétel (ID nélkül) - csak a listából vesszük ki
-    kosar.splice(i,1);
-    try{ localStorage.setItem('kosar_mentett', JSON.stringify(kosar.map(function(k){return {berloId:k.berloId,termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus,eladasId:k.eladasId};}))); } catch(e){}
-    renderKosar();
-  }
+function kosarTorles(i){
+  // A kosár még nincs a Sheetben, így a kivétel is csak helyi művelet
+  kosar.splice(i,1);
+  mentKosarLocal();
+  renderKosar();
 }
 
 async function rogzitEladas(){
-  if(!berloId_check()) return;
   if(!kosar.length){ alert('A kosár üres!'); return; }
-  kosar = [];
-  renderKosar();
-  try{ localStorage.removeItem('kosar_mentett'); } catch(e){}
-  alert('Rendelés lezárva! Minden tétel el lett mentve.');
-  renderEladasForm();
+
+  // Végső készletellenőrzés termékenként összesítve
+  const igeny = {};
+  kosar.forEach(k=>{ igeny[k.termekId] = (igeny[k.termekId]||0) + k.db; });
+  for(const tid in igeny){
+    const p = products.find(x=>x.id===parseInt(tid));
+    if(p && p.keszlet < igeny[tid]){
+      alert('Nincs elegendő készlet ebből: '+p.nev+' ('+p.keszlet+' db van, '+igeny[tid]+' db a kosárban)');
+      return;
+    }
+  }
+
+  const now = new Date();
+  const most = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+
+  // A teljes kosár EGYETLEN csomagban megy a szerverre
+  const ujEladasok = kosar.map(function(k){
+    const bevetel = k.db*k.ar;
+    const jutalekOsszeg = k.tipus==='vendeg' ? Math.round(bevetel*JUTALEK_PCT/100) : 0;
+    return {
+      id: 0, berloId: k.berloId, termekId: k.termekId, db: k.db, ar: k.ar, besar: k.besar,
+      datum: k.datum || most, megjegyzes: k.megjegyzes, tipus: k.tipus,
+      jutalekOsszeg: jutalekOsszeg,
+      jutalekStatusz: k.tipus==='vendeg' ? 'fuggoben' : '',
+      rogzitette: 'admin'
+    };
+  });
+  const keszletValtozas = kosar.map(k=>({ termekId: k.termekId, delta: -k.db }));
+
+  const data = await apiMuvelet('rogzit', { ujEladasok, keszletValtozas }, function(data){
+    // Sikeres mentés: helyi állapot frissítése a szerver által kiosztott ID-kkal
+    ujEladasok.forEach(function(uj, i){
+      uj.id = (data.eladasIds && data.eladasIds[i]) || 0;
+      eladas.push(uj);
+      const p = products.find(x=>x.id===uj.termekId);
+      if(p) p.keszlet -= uj.db;
+    });
+    kosar = [];
+    try{ localStorage.removeItem('kosar_mentett'); } catch(e){}
+    renderKosar();
+    alert('Eladás rögzítve! Mind a(z) '+ujEladasok.length+' tétel el lett mentve.');
+    renderEladasForm();
+  });
+  if(!data){
+    // A mentés nem sikerült - a kosár tartalma MEGMARADT, újra lehet próbálni
+  }
 }
 
 function berloId_check(){
