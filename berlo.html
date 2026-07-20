@@ -126,7 +126,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 <!-- BEJELENTKEZÉS - 1. lépés: bérlő választás -->
 <div id="step-valaszt" class="login-wrap">
   <div class="login-card">
-    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:var(--text3);opacity:.75;">v3.3</div>
+    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:var(--text3);opacity:.75;">v3.6</div>
     <div class="login-logo">
       <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.8">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
@@ -376,7 +376,7 @@ const JUTALEK_PCT = 18;
 const CSAK_BERLOI_KAT = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA'];
 
 let products = [], berlok = [], eladas = [], rendelesek = [];
-const APP_VERZIO = '3.3';
+const APP_VERZIO = '3.6';
 console.log('Fodrász Raktár – Bérlői felület v' + APP_VERZIO);
 let bejelentkezettBerlo = null;
 let nextRid = 1;
@@ -948,11 +948,17 @@ function brInit(){
   brRenderSajat();
 }
 
+function berloiAr(p){
+  // Ugyanaz a képlet, mint az Eladás/Vásárlás fülön: fogyasztói ár -10%
+  return Math.round((p && p.fogyasztoiar ? p.fogyasztoiar : 0)*0.9);
+}
+
 function brUpdateTermekek(){
   const kat = document.getElementById('br-kat').value;
   const filtered = products.filter(function(p){ return !kat || p.kat===kat; });
+  // A legördülőben a bérlőre vonatkozó ár is látszik
   document.getElementById('br-termek').innerHTML = '<option value="">-- Válassz vagy írj le alul --</option>'+
-    filtered.map(function(p){ return `<option value="${p.id}">${p.nev}</option>`; }).join('');
+    filtered.map(function(p){ return `<option value="${p.id}">${p.nev} — ${fmt(berloiAr(p))}</option>`; }).join('');
 }
 
 var brKosar = [];
@@ -980,13 +986,34 @@ function brRenderKosar(){
   const lista = document.getElementById('br-kosar-lista');
   if(!brKosar.length){ wrap.style.display='none'; return; }
   wrap.style.display='block';
+  var osszeg = 0;
+  var vanEgyedi = false;
   lista.innerHTML = brKosar.map(function(k,i){
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;font-size:13px;">' +
-      '<div><div style="font-weight:600;">'+k.termekNev+'</div>' +
+    const p = k.termekId ? products.find(function(x){return x.id===k.termekId;}) : null;
+    var arSzoveg;
+    if(p){
+      const ar = berloiAr(p);
+      const sorOsszeg = ar*k.db;
+      osszeg += sorOsszeg;
+      arSzoveg = '<div style="font-weight:600;font-size:13px;white-space:nowrap;">'+fmt(sorOsszeg)+'</div>' +
+        (k.db>1 ? '<div style="font-size:11px;color:var(--text3);white-space:nowrap;">'+k.db+' × '+fmt(ar)+'</div>' : '');
+    } else {
+      vanEgyedi = true;
+      arSzoveg = '<div style="font-size:11px;color:var(--text3);white-space:nowrap;">egyedi ár</div>';
+    }
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;font-size:13px;">' +
+      '<div style="min-width:0;"><div style="font-weight:600;">'+k.termekNev+'</div>' +
       '<div style="color:var(--text3);font-size:12px;">'+(k.kat?k.kat+' · ':'')+k.db+' db'+(k.megjegyzes?' · '+k.megjegyzes:'')+'</div></div>' +
-      '<button class="btn btn-sm btn-danger" onclick="brKosarTorles('+i+')">×</button>' +
+      '<div style="display:flex;align-items:center;gap:10px;">' +
+        '<div style="text-align:right;">'+arSzoveg+'</div>' +
+        '<button class="btn btn-sm btn-danger" onclick="brKosarTorles('+i+')">×</button>' +
+      '</div>' +
     '</div>';
-  }).join('');
+  }).join('') +
+  '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-size:14px;">' +
+    '<span style="font-weight:600;">Várható fizetendő:</span>' +
+    '<span style="font-weight:700;">'+fmt(osszeg)+(vanEgyedi?' <span style="font-size:11px;font-weight:400;color:var(--text3);">+ egyedi tételek</span>':'')+'</span>' +
+  '</div>';
 }
 
 function brKosarTorles(i){
@@ -1039,10 +1066,18 @@ function brRenderSajat(){
     const tetelek = csoportok[nap];
     const nyitva = idx === 0; // első csoport nyitva
     const csId = 'cs-'+nap.replace(/-/g,'');
+    // Várható fizetendő a nap tételeire (az aktuális árlista alapján)
+    var napiOsszeg = 0, napiEgyedi = false;
+    tetelek.forEach(function(r){
+      var pp = products.find(function(x){return x.id===r.termekId;});
+      if(pp) napiOsszeg += berloiAr(pp)*r.db;
+      else napiEgyedi = true;
+    });
     return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">' +
-      '<div onclick="brToggleCs(\''+csId+'\')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;font-weight:600;font-size:14px;">' +
+      '<div onclick="brToggleCs(\''+csId+'\')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;font-weight:600;font-size:14px;gap:8px;flex-wrap:wrap;">' +
         '<span>'+ nap +'</span>' +
         '<span style="display:flex;align-items:center;gap:8px;">' +
+          '<span style="font-size:13px;font-weight:700;white-space:nowrap;">'+fmt(napiOsszeg)+(napiEgyedi?' <span style="font-size:10px;font-weight:400;color:var(--text3);">+ egyedi</span>':'')+'</span>' +
           '<span style="font-size:12px;font-weight:400;color:var(--text3);">'+tetelek.length+' tétel</span>' +
           '<span id="'+csId+'-arrow" style="font-size:10px;color:var(--text3);transition:transform 0.2s;">'+(nyitva?'▼':'▶')+'</span>' +
         '</span>' +
@@ -1050,12 +1085,18 @@ function brRenderSajat(){
       '<div id="'+csId+'" style="display:'+(nyitva?'block':'none')+';">' +
         tetelek.map(function(r){
           var p = products.find(function(x){return x.id===r.termekId;});
-          return '<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">' +
-            '<div>' +
+          var arSor = p
+            ? '<div style="font-weight:600;font-size:13px;white-space:nowrap;">'+fmt(berloiAr(p)*r.db)+'</div>'+(r.db>1?'<div style="font-size:10px;color:var(--text3);white-space:nowrap;">'+r.db+' × '+fmt(berloiAr(p))+'</div>':'')
+            : '<div style="font-size:10px;color:var(--text3);white-space:nowrap;">egyedi ár</div>';
+          return '<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
+            '<div style="min-width:0;">' +
               '<div style="font-weight:500;font-size:13px;">'+r.termekNev+'</div>' +
               '<div style="font-size:12px;color:var(--text3);">'+(p?p.kat+' · ':'')+r.datum.slice(11,16)+' · '+r.db+' db'+(r.megjegyzes?' · '+r.megjegyzes:'')+'</div>' +
             '</div>' +
-            '<div style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:'+(statColor[r.statusz]||'#f0ede8')+';white-space:nowrap;">'+(statLabel[r.statusz]||r.statusz)+'</div>' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+              '<div style="text-align:right;">'+arSor+'</div>' +
+              '<div style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:'+(statColor[r.statusz]||'#f0ede8')+';white-space:nowrap;">'+(statLabel[r.statusz]||r.statusz)+'</div>' +
+            '</div>' +
           '</div>';
         }).join('') +
       '</div>' +
