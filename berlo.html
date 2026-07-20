@@ -797,6 +797,39 @@ async function bRogzit(){
 }
 
 // NAPLÓ
+function bNaploTetel(e, csoportban){
+  const p = products.find(function(x){return x.id===e.termekId;});
+  const isVendeg = e.tipus==='vendeg';
+  const bev = e.db*e.ar;
+  const stilus = csoportban ? ' style="border:none;border-top:1px solid var(--border);border-radius:0;margin-bottom:0;"' : '';
+  return '<div class="naplo-item"'+stilus+'>' +
+    '<div class="naplo-header">' +
+      '<div>' +
+        '<div class="naplo-nev">'+(p?p.nev:'?')+'</div>' +
+        '<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+(p?p.kat:'')+'</div>' +
+      '</div>' +
+      '<div style="text-align:right;">' +
+        '<div style="font-weight:600;font-size:15px;">'+fmt(bev)+'</div>' +
+        (csoportban ? '' : '<div class="naplo-datum">'+e.datum+'</div>') +
+      '</div>' +
+    '</div>' +
+    '<div class="naplo-meta">' +
+      '<span>'+e.db+' db × '+fmt(e.ar)+'</span>' +
+      (isVendeg ? '<span class="naplo-badge naplo-vendeg">Vendégeladás</span><span>Jutalék: '+fmt(e.jutalekOsszeg)+'</span>' : '<span class="naplo-badge naplo-berlo">Saját vásárlás</span>') +
+      (e.megjegyzes ? '<span>'+e.megjegyzes+'</span>' : '') +
+    '</div>' +
+  '</div>';
+}
+
+function bToggleNcs(id){
+  const el = document.getElementById(id);
+  const arrow = document.getElementById(id+'-arrow');
+  if(!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if(arrow) arrow.textContent = open ? '▶' : '▼';
+}
+
 function bRenderNaplo(){
   const tol = document.getElementById('b-naplo-tol').value;
   const ig = document.getElementById('b-naplo-ig').value;
@@ -813,25 +846,43 @@ function bRenderNaplo(){
   const div = document.getElementById('b-naplo-lista');
   if(!list.length){ div.innerHTML='<div class="empty-state">Nincs rögzített eladás</div>'; document.getElementById('b-naplo-osszeg').innerHTML=''; return; }
 
-  div.innerHTML = list.map(function(e){
-    const p = products.find(function(x){return x.id===e.termekId;});
-    const isVendeg = e.tipus==='vendeg';
-    const bev = e.db*e.ar;
-    return '<div class="naplo-item">' +
-      '<div class="naplo-header">' +
-        '<div>' +
-          '<div class="naplo-nev">'+(p?p.nev:'?')+'</div>' +
-          '<div style="font-size:12px;color:var(--text3);margin-top:2px;">'+(p?p.kat:'')+'</div>' +
+  // Az együtt rögzített tételek (azonos perc + rögzítő) egy lenyitható kártyára kerülnek
+  const csoportok = {};
+  const sorrend = [];
+  list.forEach(function(e){
+    const key = e.datum.slice(0,16)+'||'+(e.rogzitette||'admin');
+    if(!csoportok[key]){ csoportok[key] = []; sorrend.push(key); }
+    csoportok[key].push(e);
+  });
+
+  div.innerHTML = sorrend.map(function(key, idx){
+    const tetelek = csoportok[key];
+    // Egytételes rögzítés: marad a megszokott sima kártya
+    if(tetelek.length === 1) return bNaploTetel(tetelek[0], false);
+
+    const elso = tetelek[0];
+    const totBev = tetelek.reduce(function(s2,e){return s2+e.db*e.ar;},0);
+    const totJut = tetelek.filter(function(e){return e.tipus==='vendeg';}).reduce(function(s2,e){return s2+(e.jutalekOsszeg||0);},0);
+    const rogz = elso.rogzitette||'admin';
+    const rogzCimke = rogz==='admin'
+      ? '<span style="background:#E8E8E8;color:#444;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;">Admin rögzítette</span>'
+      : '';
+    const bodyId = 'bncs-'+idx;
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:10px;overflow:hidden;">' +
+      '<div onclick="bToggleNcs(\''+bodyId+'\')" style="background:var(--surface2);display:flex;justify-content:space-between;align-items:center;padding:12px 16px;gap:8px;cursor:pointer;flex-wrap:wrap;">' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<span id="'+bodyId+'-arrow" style="font-size:10px;color:var(--text3);">▶</span>' +
+          '<span style="font-weight:600;font-size:14px;">'+elso.datum.slice(0,16)+'</span>' +
+          rogzCimke +
+          '<span style="font-size:12px;color:var(--text2);">'+tetelek.length+' tétel</span>' +
         '</div>' +
         '<div style="text-align:right;">' +
-          '<div style="font-weight:600;font-size:15px;">'+fmt(bev)+'</div>' +
-          '<div class="naplo-datum">'+e.datum+'</div>' +
+          '<div style="font-weight:600;font-size:15px;">'+fmt(totBev)+'</div>' +
+          (totJut ? '<div style="font-size:11px;color:var(--accent);">Jutalék: '+fmt(totJut)+'</div>' : '') +
         '</div>' +
       '</div>' +
-      '<div class="naplo-meta">' +
-        '<span>'+e.db+' db × '+fmt(e.ar)+'</span>' +
-        (isVendeg ? '<span class="naplo-badge naplo-vendeg">Vendégeladás</span><span>Jutalék: '+fmt(e.jutalekOsszeg)+'</span>' : '<span class="naplo-badge naplo-berlo">Saját vásárlás</span>') +
-        (e.megjegyzes ? '<span>'+e.megjegyzes+'</span>' : '') +
+      '<div id="'+bodyId+'" style="display:none;">' +
+        tetelek.map(function(e){return bNaploTetel(e, true);}).join('') +
       '</div>' +
     '</div>';
   }).join('');
