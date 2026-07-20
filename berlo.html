@@ -283,7 +283,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
         <div id="b-kosar-wrap" style="display:none;margin-top:14px;">
           <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span>🛒 Kosár</span>
-            <button class="btn btn-sm" onclick="bKosar=[];bRenderKosar()" style="font-size:12px;">Ürítés</button>
+            <button class="btn btn-sm" onclick="bKosar=[];bMentKosarLocal();bRenderKosar()" style="font-size:12px;">Ürítés</button>
           </div>
           <div id="b-kosar-lista"></div>
           <div id="b-kosar-osszeg" style="background:var(--surface2);border-radius:var(--radius);padding:10px 14px;margin-top:8px;font-size:12px;"></div>
@@ -344,7 +344,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
         <div id="br-kosar-wrap" style="display:none;margin-top:14px;">
           <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between;">
             <span>🛒 Rendelési kosár</span>
-            <button class="btn btn-sm" onclick="brKosar=[];brRenderKosar()" style="font-size:12px;">Ürítés</button>
+            <button class="btn btn-sm" onclick="brKosar=[];brMentKosarLocal();brRenderKosar()" style="font-size:12px;">Ürítés</button>
           </div>
           <div id="br-kosar-lista"></div>
           <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;margin-top:10px;" onclick="brLeadas()">
@@ -557,6 +557,8 @@ function indulApp(){
 }
 
 function kijelentkezes(){
+  bKosar = [];
+  brKosar = [];
   bejelentkezettBerlo = null;
   valasztottBerloId = null;
   pinBuffer = '';
@@ -611,7 +613,7 @@ function bInitEladas(){
   // Visszatöltjük a mentett kosarat ha van
   if(!bKosar.length){
     try{
-      const mentett = localStorage.getItem('b_kosar_mentett');
+      const mentett = localStorage.getItem(bKosarKulcs());
       if(mentett){
         const items = JSON.parse(mentett);
         if(items.length){
@@ -697,6 +699,19 @@ function bUpdateCalc(){
 
 var bKosar = [];
 
+// Kosármentés BÉRLŐNKÉNT külön kulccsal - így közös eszközön az egyik
+// bérlő kosara nem kerülhet át a másikhoz
+function bKosarKulcs(){ return 'b_kosar_' + (bejelentkezettBerlo ? bejelentkezettBerlo.id : 'x'); }
+function brKosarKulcs(){ return 'br_kosar_' + (bejelentkezettBerlo ? bejelentkezettBerlo.id : 'x'); }
+function bMentKosarLocal(){
+  try{ localStorage.setItem(bKosarKulcs(), JSON.stringify(bKosar.map(function(k){return {termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus};}))); } catch(e){}
+}
+function brMentKosarLocal(){
+  try{ localStorage.setItem(brKosarKulcs(), JSON.stringify(brKosar)); } catch(e){}
+}
+// A régi, közös (bérlőfüggetlen) kulcsok végleges törlése
+try{ localStorage.removeItem('b_kosar_mentett'); localStorage.removeItem('br_kosar_mentett'); } catch(e){}
+
 function bKosarba(){
   const termekId = parseInt(document.getElementById('b-termek').value);
   const db = parseInt(document.getElementById('b-db').value)||0;
@@ -711,7 +726,7 @@ function bKosarba(){
   bKosar.push({termekId, db, ar, besar: p.besar, megjegyzes, tipus: currentTipus, p});
   bRenderKosar();
   // Kosár mentése localStorage-ba biztonságként
-  try{ localStorage.setItem('b_kosar_mentett', JSON.stringify(bKosar.map(function(k){return {termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus};}))); } catch(e){}
+  bMentKosarLocal();
   document.getElementById('b-termek').value = '';
   document.getElementById('b-kat').value = '';
   document.getElementById('b-db').value = 1;
@@ -750,7 +765,7 @@ function bRenderKosar(){
 
 function bKosarTorles(i){
   bKosar.splice(i,1);
-  try{ localStorage.setItem('b_kosar_mentett', JSON.stringify(bKosar.map(function(k){return {termekId:k.termekId,db:k.db,ar:k.ar,besar:k.besar,megjegyzes:k.megjegyzes,tipus:k.tipus};}))); } catch(e){}
+  bMentKosarLocal();
   bRenderKosar();
 }
 
@@ -786,7 +801,7 @@ async function bRogzit(){
     await berloMentes(ujEladasok, [], keszletValtozas);
     bKosar = [];
     bRenderKosar();
-    try{ localStorage.removeItem('b_kosar_mentett'); } catch(e){}
+    try{ localStorage.removeItem(bKosarKulcs()); } catch(e){}
     alert('Rögzítve és elmentve!');
     bInitEladas();
   } catch(err){
@@ -905,7 +920,7 @@ function brInit(){
   // Mentett rendelési kosár visszatöltése (pl. ha bezárult az oldal)
   if(!brKosar.length){
     try{
-      const mentett = localStorage.getItem('br_kosar_mentett');
+      const mentett = localStorage.getItem(brKosarKulcs());
       if(mentett){
         const items = JSON.parse(mentett);
         if(items.length){ brKosar = items; brRenderKosar(); }
@@ -945,7 +960,7 @@ function brKosarba(){
   const termekNev = p ? p.nev : szabadszoveg;
   const kat = p ? p.kat : '';
   brKosar.push({ termekId, termekNev, kat, db, megjegyzes });
-  try{ localStorage.setItem('br_kosar_mentett', JSON.stringify(brKosar)); } catch(e){}
+  brMentKosarLocal();
   brRenderKosar();
   document.getElementById('br-termek').value = '';
   document.getElementById('br-szabadszoveg').value = '';
@@ -969,7 +984,7 @@ function brRenderKosar(){
 
 function brKosarTorles(i){
   brKosar.splice(i,1);
-  try{ localStorage.setItem('br_kosar_mentett', JSON.stringify(brKosar)); } catch(e){}
+  brMentKosarLocal();
   brRenderKosar();
 }
 
@@ -987,7 +1002,7 @@ function brLeadas(){
   });
   berloMentes([], ujRendelesek, []).then(function(){
     brKosar = [];
-    try{ localStorage.removeItem('br_kosar_mentett'); } catch(e){}
+    try{ localStorage.removeItem(brKosarKulcs()); } catch(e){}
     brRenderKosar();
     alert('Rendelési igény leadva!');
     brRenderSajat();
