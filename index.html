@@ -310,7 +310,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v3.5</div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v3.6</div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -944,7 +944,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v3.5');
+console.log('Fodrász Raktár – Admin felület v3.6');
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
   const jsonStr = JSON.stringify(payload || {});
@@ -1792,7 +1792,7 @@ function renderSzamla(){
         const bev=e.db*e.ar,kolt=e.db*besar,has=bev-kolt;
         return`<tr>
           <td>${e.datum}</td>
-          <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p?p.nev:'?'}">${p?p.nev:'?'}${e.megjegyzes?'<br><span style="font-size:11px;color:var(--text3)">'+e.megjegyzes+'</span>':''}</td>
+          <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p?p.nev+' ('+p.kat+')':'?'}">${p?p.nev:'?'}<br><span style="font-size:11px;color:var(--text3)">${p?p.kat:''}${e.megjegyzes?(p?' · ':'')+e.megjegyzes:''}</span></td>
           <td class="td-mono" style="text-align:right">${e.db}</td>
           <td class="td-mono" style="text-align:right">${fmt(e.ar)}</td>
           <td class="td-mono" style="text-align:right">${fmt(bev)}</td>
