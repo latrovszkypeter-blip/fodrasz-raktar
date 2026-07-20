@@ -310,7 +310,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v3.4</div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v3.5</div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -944,7 +944,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v3.4');
+console.log('Fodrász Raktár – Admin felület v3.5');
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
   const jsonStr = JSON.stringify(payload || {});
@@ -1755,11 +1755,14 @@ function renderSzamla(){
   const b=berlok.find(x=>x.id===bId);
   let list=eladas.filter(e=>{
     if(e.berloId!==bId)return false;
+    // Csak a bérlői vásárlások számláznak: admin "bérlőnek eladás" + bérlő saját vásárlása.
+    // A vendégeladások NEM: azoknál a bérlő jutalékot kap, nem fizet.
+    if((e.tipus||'berlo')!=='berlo')return false;
     if(tol&&e.datum<tol)return false;
     if(ig&&e.datum>ig)return false;
     return true;
   }).sort((a,c)=>a.datum.localeCompare(c.datum));
-  if(!list.length){div.innerHTML='<div class="empty-state" style="padding:40px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">Nincs értékesítés ebben az időszakban</div>';return;}
+  if(!list.length){div.innerHTML='<div class="empty-state" style="padding:40px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">Nincs bérlői vásárlás ebben az időszakban</div>';return;}
   const totBev=list.reduce((s,e)=>s+e.db*e.ar,0);
   const totKolt=list.reduce((s,e)=>s+(e.besar!==undefined?e.besar:(products.find(x=>x.id===e.termekId)||{besar:0}).besar)*e.db,0);
   const totHas=totBev-totKolt;
@@ -1770,7 +1773,7 @@ function renderSzamla(){
       <div>
         <div style="font-size:16px;font-weight:600;">${b.nev}</div>
         <div style="font-size:12px;color:var(--text3);margin-top:2px;">${b.adoszam?'Adószám: '+b.adoszam:''}${b.adoszam&&b.telefon?' · ':''}${b.telefon||''}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:1px;">Időszak: ${idoszak}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:1px;">Időszak: ${idoszak} · Csak bérlői vásárlások (vendégeladás nélkül)</div>
       </div>
     </div>
     <div class="table-wrap"><table>
