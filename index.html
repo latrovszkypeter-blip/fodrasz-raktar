@@ -310,7 +310,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v3.3</div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v3.4</div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -944,7 +944,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v3.3');
+console.log('Fodrász Raktár – Admin felület v3.4');
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
   const jsonStr = JSON.stringify(payload || {});
@@ -2302,28 +2302,114 @@ function renderJutalek(){
 
   const tbody=document.getElementById('jutalek-tbody');
   if(!list.length){tbody.innerHTML='<tr><td colspan="8"><div class="empty-state">Nincs vendégeladásból származó jutalék a szűrőkre</div></td></tr>';return;}
-  tbody.innerHTML=list.map(e=>{
+
+  // Az együtt rögzített eladások jutalékai egy csoportba kerülnek
+  const csoportok={};
+  const sorrend=[];
+  list.forEach(e=>{
+    const key=e.datum.slice(0,16)+'||'+e.berloId+'||'+(e.rogzitette||'admin');
+    if(!csoportok[key]){csoportok[key]=[];sorrend.push(key);}
+    csoportok[key].push(e);
+  });
+
+  function jStatSelect(statusz, onchangeAttr, extraStyle){
+    const szin = statusz==='fuggoben'
+      ? 'background:#fee2e2;color:#991b1b;border-color:#fca5a5;'
+      : statusz==='vegyes'
+        ? 'background:#fef3c7;color:#92400e;border-color:#fcd34d;'
+        : 'background:#e8f2ec;color:#2d5a3d;border-color:#c6e0cc;';
+    return `<select class="status-select" onchange="${onchangeAttr}" style="${szin}font-weight:500;${extraStyle||''}">`+
+      (statusz==='vegyes'?'<option value="" selected>— vegyes —</option>':'')+
+      `<option value="fuggoben" ${statusz==='fuggoben'?'selected':''}>⏳ Függőben</option>
+      <option value="kifizetve" ${statusz==='kifizetve'?'selected':''}>✓ Kifizetve</option>
+      <option value="berletbol" ${statusz==='berletbol'?'selected':''}>✓ Bérletiből levonva</option>
+    </select>`;
+  }
+
+  function jSor(e, csoportban, csIdx){
     const b=berlok.find(x=>x.id===e.berloId),p=products.find(x=>x.id===e.termekId);
     const bev=e.db*e.ar;
     const statusz=e.jutalekStatusz||'fuggoben';
-    return`<tr>
-      <td>${e.datum}</td>
-      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${b?b.nev:'?'}">${b?b.nev:'?'}</td>
+    const rejtett = csoportban ? ` class="jcs-sor jcs-${csIdx}" style="display:none;background:var(--surface2);"` : '';
+    return `<tr${rejtett}>
+      <td>${csoportban?'':e.datum}</td>
+      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${b?b.nev:'?'}">${csoportban?'':(b?b.nev:'?')}</td>
       <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p?p.nev:'?'}">${p?p.nev:'?'}</td>
       <td class="td-mono">${e.db} db</td>
       <td class="td-mono">${fmt(bev)}</td>
       <td class="td-mono" style="font-weight:600;color:var(--accent2)">${fmt(e.jutalekOsszeg||0)}</td>
-      <td>
-        <select class="status-select" onchange="setJutalekStatusz(${e.id}, this.value)" style="${statusz==='fuggoben'?'background:#fee2e2;color:#991b1b;border-color:#fca5a5;':statusz==='kifizetve'?'background:#e8f2ec;color:#2d5a3d;border-color:#c6e0cc;':'background:#e8f2ec;color:#2d5a3d;border-color:#c6e0cc;'}font-weight:500;">
-          <option value="fuggoben" ${statusz==='fuggoben'?'selected':''}>⏳ Függőben</option>
-          <option value="kifizetve" ${statusz==='kifizetve'?'selected':''}>✓ Kifizetve</option>
-          <option value="berletbol" ${statusz==='berletbol'?'selected':''}>✓ Bérletiből levonva</option>
-        </select>
-      </td>
+      <td>${jStatSelect(statusz, 'setJutalekStatusz('+e.id+', this.value)')}</td>
       <td><button class="btn btn-sm btn-danger" onclick="delJutalek(${e.id})" title="Törlés">
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
       </button></td>
-    </tr>`;}).join('');
+    </tr>`;
+  }
+
+  tbody.innerHTML = sorrend.map((key, csIdx)=>{
+    const tetelek=csoportok[key];
+    // Egytételes rögzítés: marad a sima sor
+    if(tetelek.length===1) return jSor(tetelek[0], false, csIdx);
+
+    const elso=tetelek[0];
+    const b=berlok.find(x=>x.id===elso.berloId);
+    const totJut=tetelek.reduce((s2,e)=>s2+(e.jutalekOsszeg||0),0);
+    const statuszok=[...new Set(tetelek.map(e=>e.jutalekStatusz||'fuggoben'))];
+    const kozosStatusz = statuszok.length===1 ? statuszok[0] : 'vegyes';
+    const ids=tetelek.map(e=>e.id).join(',');
+    return `<tr style="background:var(--surface2);border-top:2px solid var(--border);">
+      <td onclick="toggleJcs(${csIdx})" style="cursor:pointer;white-space:nowrap;"><span id="jcs-arrow-${csIdx}" style="font-size:10px;color:var(--text3);margin-right:6px;">▶</span>${elso.datum.slice(0,16)}</td>
+      <td onclick="toggleJcs(${csIdx})" style="cursor:pointer;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${b?b.nev:'?'}">${b?b.nev:'?'}</td>
+      <td onclick="toggleJcs(${csIdx})" style="cursor:pointer;color:var(--text2);">${tetelek.length} tétel együtt</td>
+      <td class="td-mono" onclick="toggleJcs(${csIdx})" style="cursor:pointer;">${tetelek.reduce((s2,e)=>s2+e.db,0)} db</td>
+      <td class="td-mono" onclick="toggleJcs(${csIdx})" style="cursor:pointer;">${fmt(tetelek.reduce((s2,e)=>s2+e.db*e.ar,0))}</td>
+      <td class="td-mono" style="font-weight:700;color:var(--accent2)">${fmt(totJut)}</td>
+      <td>${jStatSelect(kozosStatusz, "setJutalekCsoportStatusz('"+ids+"', this.value)")}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="delJutalekCsoport('${ids}')" title="Csoport törlése">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+      </button></td>
+    </tr>` + tetelek.map(e=>jSor(e, true, csIdx)).join('');
+  }).join('');
+}
+
+function toggleJcs(csIdx){
+  const sorok = document.querySelectorAll('.jcs-'+csIdx);
+  const arrow = document.getElementById('jcs-arrow-'+csIdx);
+  if(!sorok.length) return;
+  const nyitva = sorok[0].style.display !== 'none';
+  sorok.forEach(tr=>{ tr.style.display = nyitva ? 'none' : ''; });
+  if(arrow) arrow.textContent = nyitva ? '▶' : '▼';
+}
+
+async function setJutalekCsoportStatusz(idsCsv, ujStatusz){
+  if(!ujStatusz) return;
+  const ids = idsCsv.split(',').map(Number);
+  await apiMuvelet('statuszValtas', { tipus:'jutalek', ids: ids, statusz: ujStatusz }, function(){
+    ids.forEach(id=>{
+      const e = eladas.find(x=>x.id===id);
+      if(e) e.jutalekStatusz = ujStatusz;
+    });
+  });
+  renderJutalek();
+}
+
+async function delJutalekCsoport(idsCsv){
+  const ids = idsCsv.split(',').map(Number);
+  const tetelek = eladas.filter(e=>ids.includes(e.id));
+  if(!tetelek.length) return;
+  if(!confirm('Biztosan törlöd mind a '+tetelek.length+' jutalék tételt? 30 napig visszaállíthatók lesznek a Lomtárból.')) return;
+  const csoportId = 'cs' + Date.now();
+  await apiMuvelet('torles', {
+    tipus: 'eladas', ids: ids, lomtarba: true, csoport: csoportId,
+    keszletVissza: tetelek.map(e=>({ termekId: e.termekId, delta: e.db }))
+  }, function(){
+    tetelek.forEach(e=>{
+      const p = products.find(x=>x.id===e.termekId);
+      if(p) p.keszlet += e.db;
+    });
+    eladas = eladas.filter(e=>!ids.includes(e.id));
+    renderJutalek();
+    loadFromSheet(true); // lomtár frissítése a szerverről
+  });
 }
 async function delJutalek(id){
   if(!confirm('Biztosan törlöd ezt a jutalék tételt? 30 napig visszaállítható lesz a Lomtárból.')) return;
