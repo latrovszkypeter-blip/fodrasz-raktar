@@ -310,7 +310,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v3.6</div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v3.7</div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -944,7 +944,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v3.6');
+console.log('Fodrász Raktár – Admin felület v3.7');
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
   const jsonStr = JSON.stringify(payload || {});
@@ -1623,7 +1623,9 @@ function renderNaplo(){
 
   if(tableCard) tableCard.innerHTML = keys.map((key,idx)=>{
     const cs=csoportok[key];
-    const nyitva=idx===0;
+    // Alapból minden kártya csukva; amit kézzel kinyitottál, az
+    // újrarajzolás (auto-frissítés) után is nyitva marad
+    const nyitva=nyitottNaploCsoportok.has(key);
     const csId='ncs'+idx;
     const totBev=cs.tetelek.reduce((s,e)=>s+e.db*e.ar,0);
     const rogz=cs.tetelek[0].rogzitette||'admin';
@@ -1634,7 +1636,7 @@ function renderNaplo(){
 
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">
       <div style="${headerBg}display:flex;justify-content:space-between;align-items:center;padding:12px 16px;">
-        <div onclick="toggleNcs('${csId}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;flex-wrap:wrap;">
+        <div onclick="toggleNcs('${csId}', this.dataset.kulcs)" data-kulcs="${key}" style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;flex-wrap:wrap;">
           <span id="${csId}-arrow" style="font-size:10px;color:var(--text3);">${nyitva?'▼':'▶'}</span>
           <span style="font-weight:600;font-size:14px;">${cs.perc} · ${cs.berloNev}</span>
           ${rogzCimke}
@@ -1720,12 +1722,17 @@ async function delNaploCsoport(key){
   });
 }
 
-function toggleNcs(id){
+const nyitottNaploCsoportok = new Set();
+function toggleNcs(id, kulcs){
   const el=document.getElementById(id);
   const arrow=document.getElementById(id+'-arrow');
   const open=el.style.display!=='none';
   el.style.display=open?'none':'block';
   arrow.textContent=open?'▶':'▼';
+  if(kulcs !== undefined){
+    if(open) nyitottNaploCsoportok.delete(kulcs);
+    else nyitottNaploCsoportok.add(kulcs);
+  }
 }
 
 
