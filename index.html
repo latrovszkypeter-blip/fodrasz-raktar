@@ -310,7 +310,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v3.9</div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v4.0</div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -980,7 +980,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v3.9');
+console.log('Fodrász Raktár – Admin felület v4.0');
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
   const jsonStr = JSON.stringify(payload || {});
@@ -1826,6 +1826,7 @@ function renderSzamla(){
         <div style="font-size:12px;color:var(--text3);margin-top:1px;">Időszak: ${idoszak} · Csak bérlői vásárlások (vendégeladás nélkül)</div>
       </div>
     </div>
+    <div style="padding:8px 20px 0;font-size:11px;color:var(--text3);">A piros/zöld jelzés az állapot · a gombokkal rögzíted vagy vonod vissza a kifizetést · a ▶ nyíllal nyithatod le a napokat</div>
     <div class="table-wrap"><table>
       <thead><tr>
         <th style="width:12%">Dátum</th>
@@ -1850,7 +1851,7 @@ function renderSzamla(){
         <span>Kifizetve: <strong class="profit-pos">${fmt(totFizetve)}</strong></span>
         <span>Hátralék: <strong class="${totHatralek>0?'profit-neg':''}">${fmt(totHatralek)}</strong></span>
       </div>
-      ${fizetetlenIds.length?`<button class="btn btn-primary btn-sm" onclick="openFizetes('${fizetetlenIds.join(',')}', true)">Kifizetés rögzítése (${fizetetlenIds.length} tétel)</button>`:'<span style="font-size:13px;color:var(--text3);">Minden tétel kifizetve ✓</span>'}
+      ${fizetetlenIds.length?`<button class="btn btn-primary btn-sm" onclick="openFizetes('${fizetetlenIds.join(',')}', true)">Teljes időszak kifizetése (${fizetetlenIds.length} tétel)</button>`:'<span style="font-size:13px;color:var(--text3);">Minden tétel kifizetve ✓</span>'}
     </div>
   </div>`;
 }
@@ -1889,9 +1890,22 @@ function szamlaSorok(list){
     const totBev = tetelek.reduce((s2,e)=>s2+e.db*e.ar,0);
     const totKolt = tetelek.reduce((s2,e)=>s2+e.db*(e.besar!==undefined?e.besar:(products.find(x=>x.id===e.termekId)||{besar:0}).besar),0);
     const fizetetlen = tetelek.filter(e=>!e.fizetve);
-    const csFizBadge = fizetetlen.length===0
-      ? '<span style="display:inline-block;background:#e8f2ec;color:#2d5a3d;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap;">✓ Mind kifizetve</span>'
-      : `<button class="btn btn-sm btn-primary" onclick="openFizetes('${fizetetlen.map(e=>e.id).join(',')}', true)" style="font-size:11px;padding:4px 10px;">Kifizetve (${fizetetlen.length} db)</button>`;
+    const fizetett = tetelek.filter(e=>e.fizetve);
+    let csFizBadge;
+    if(fizetetlen.length===0){
+      // Minden kifizetve - zöld ÁLLAPOT + visszavonás lehetősége
+      const elsoFiz = fizetett[0];
+      csFizBadge = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+        '<span style="display:inline-block;background:#e8f2ec;color:#2d5a3d;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap;">✓ Kifizetve'+(elsoFiz&&elsoFiz.fizetesDatum?' · '+elsoFiz.fizetesDatum:'')+(elsoFiz&&FIZ_MOD_NEV[elsoFiz.fizetesMod]?' · '+FIZ_MOD_NEV[elsoFiz.fizetesMod]:'')+'</span>' +
+        `<button class="btn btn-sm" onclick="visszavonFizetesCsoport('${fizetett.map(e=>e.id).join(',')}')" title="Kifizetés visszavonása" style="font-size:11px;padding:3px 8px;">↩</button>` +
+      '</div>';
+    } else {
+      // Van fizetetlen - PIROS állapotjelző + külön gomb a rögzítéshez
+      csFizBadge = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+        '<span style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap;">⏳ '+fizetetlen.length+' db fizetetlen</span>' +
+        `<button class="btn btn-sm btn-primary" onclick="openFizetes('${fizetetlen.map(e=>e.id).join(',')}', true)" style="font-size:11px;padding:3px 9px;white-space:nowrap;">Kifizetés rögzítése</button>` +
+      '</div>';
+    }
     return `<tr style="background:var(--surface2);border-top:2px solid var(--border);cursor:pointer;">
       <td onclick="toggleScs(${idx})" style="white-space:nowrap;font-weight:600;"><span id="scs-arrow-${idx}" style="font-size:10px;color:var(--text3);margin-right:6px;">▶</span>${nap}</td>
       <td onclick="toggleScs(${idx})" style="color:var(--text2);">${tetelek.length} tétel ezen a napon</td>
@@ -1953,6 +1967,19 @@ async function saveFizetes(){
     ids.forEach(id=>{
       const e = eladas.find(x=>x.id===id);
       if(e){ e.fizetve='igen'; e.fizetesDatum=datum; e.fizetesMod=mod; }
+    });
+    renderSzamla();
+  });
+}
+
+async function visszavonFizetesCsoport(idsCsv){
+  const ids = String(idsCsv).split(',').map(Number).filter(n=>n);
+  if(!ids.length) return;
+  if(!confirm('Visszavonod a kifizetést mind a '+ids.length+' tételnél?\n\nUtána újra "nincs kifizetve" állapotba kerülnek.')) return;
+  await apiMuvelet('fizetesValtas', { ids, fizetve:false }, function(){
+    ids.forEach(id=>{
+      const e = eladas.find(x=>x.id===id);
+      if(e){ e.fizetve=''; e.fizetesDatum=''; e.fizetesMod=''; }
     });
     renderSzamla();
   });
