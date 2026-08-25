@@ -310,7 +310,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v3.8</div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v3.9</div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -324,6 +324,8 @@ tbody tr:hover td { filter: brightness(0.97); }
     </button>
   </div>
 </div>
+
+<div id="backend-warn" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;padding:12px 16px;border-radius:var(--radius-lg);margin-bottom:12px;font-size:13px;line-height:1.5;"></div>
 
 <div class="tabs">
   <button class="tab active" onclick="showTab('keszlet',this)">
@@ -881,6 +883,17 @@ function fixDatum(d){
   return s;
 }
 
+const VART_BACKEND_VERZIO = '3.9';
+function ellenorizBackendVerzio(v){
+  const sav = document.getElementById('backend-warn');
+  if(!sav) return;
+  if(v === VART_BACKEND_VERZIO){ sav.style.display='none'; return; }
+  sav.style.display='block';
+  sav.innerHTML = '⚠️ <strong>A backend régi verzió'+(v?' (v'+v+')':'')+'!</strong> '+
+    'Az Apps Scriptben publikáld újra: Üzembe helyezés → Üzembe helyezések kezelése → ✏️ → Új verzió → Üzembe helyezés. '+
+    '(Elvárt: v'+VART_BACKEND_VERZIO+')';
+}
+
 async function loadFromSheet(silent){
   if(isSaving) return; // Ne töltsük felül ha épp mentés folyik
   isLoading=false;
@@ -893,6 +906,7 @@ async function loadFromSheet(silent){
     clearTimeout(timeout);
     const data = await res.json();
     if(data.error){ throw new Error(data.error); }
+    ellenorizBackendVerzio(data.backendVerzio);
     // JAVÍTÁS: ha a letöltés KÖZBEN mentés indult (pl. törlés történt),
     // a régi szerveradatokkal NEM írjuk felül a friss helyi állapotot!
     if(isSaving){ showSyncStatus('Mentés folyamatban...', false); return; }
@@ -916,7 +930,12 @@ async function loadFromSheet(silent){
       tipus: e.tipus || 'berlo',
       jutalekOsszeg: e.jutalekOsszeg!==undefined && e.jutalekOsszeg!=='' ? Number(e.jutalekOsszeg) : 0,
       jutalekStatusz: e.jutalekStatusz || (e.tipus==='vendeg' ? 'fuggoben' : ''),
-      rogzitette: e.rogzitette || 'admin'
+      rogzitette: e.rogzitette || 'admin',
+      // FONTOS: a fizetési mezők átvétele - enélkül minden újratöltésnél
+      // visszaállt volna "nincs kifizetve" állapotra
+      fizetve: (e.fizetve===true || String(e.fizetve||'').toLowerCase()==='igen' || String(e.fizetve||'').toLowerCase()==='true') ? 'igen' : '',
+      fizetesDatum: String(e.fizetesDatum||''),
+      fizetesMod: String(e.fizetesMod||'')
     }));
     calcNextIds();
     showSyncStatus('Betöltve ✓', false);
@@ -961,7 +980,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v3.8');
+console.log('Fodrász Raktár – Admin felület v3.9');
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
   const jsonStr = JSON.stringify(payload || {});
@@ -1818,20 +1837,7 @@ function renderSzamla(){
         <th style="width:10%;text-align:right">Haszon</th>
         <th style="width:16%">Fizetés</th>
       </tr></thead>
-      <tbody>${list.map(e=>{
-        const p=products.find(x=>x.id===e.termekId);
-        const besar=e.besar!==undefined?e.besar:(p?p.besar:0);
-        const bev=e.db*e.ar,kolt=e.db*besar,has=bev-kolt;
-        return`<tr>
-          <td>${e.datum}</td>
-          <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p?p.nev+' ('+p.kat+')':'?'}">${p?p.nev:'?'}<br><span style="font-size:11px;color:var(--text3)">${p?p.kat:''}${e.megjegyzes?(p?' · ':'')+e.megjegyzes:''}</span></td>
-          <td class="td-mono" style="text-align:right">${e.db}</td>
-          <td class="td-mono" style="text-align:right">${fmt(e.ar)}</td>
-          <td class="td-mono" style="text-align:right">${fmt(bev)}</td>
-          <td class="td-mono" style="text-align:right">${fmt(kolt)}</td>
-          <td class="td-mono ${has>=0?'profit-pos':'profit-neg'}" style="text-align:right">${fmt(has)}</td>
-          <td>${fizetesBadge(e)}</td>
-        </tr>`;}).join('')}
+      <tbody>${szamlaSorok(list)}
       </tbody>
     </table></div>
     <div class="szamla-footer">
@@ -1847,6 +1853,65 @@ function renderSzamla(){
       ${fizetetlenIds.length?`<button class="btn btn-primary btn-sm" onclick="openFizetes('${fizetetlenIds.join(',')}', true)">Kifizetés rögzítése (${fizetetlenIds.length} tétel)</button>`:'<span style="font-size:13px;color:var(--text3);">Minden tétel kifizetve ✓</span>'}
     </div>
   </div>`;
+}
+
+// Számlázási sorok napi csoportokban, csoportos kifizetéssel
+function szamlaSorok(list){
+  const napok = {};
+  const sorrend = [];
+  list.forEach(e=>{
+    const nap = e.datum.slice(0,10);
+    if(!napok[nap]){ napok[nap]=[]; sorrend.push(nap); }
+    napok[nap].push(e);
+  });
+
+  function tetelSor(e, csoportban, idx){
+    const p=products.find(x=>x.id===e.termekId);
+    const besar=e.besar!==undefined?e.besar:(p?p.besar:0);
+    const bev=e.db*e.ar,kolt=e.db*besar,has=bev-kolt;
+    const rejt = csoportban ? ` class="scs-${idx}" style="display:none;background:var(--surface2);"` : '';
+    return `<tr${rejt}>
+      <td>${csoportban?e.datum.slice(11,16):e.datum}</td>
+      <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p?p.nev+' ('+p.kat+')':'?'}">${p?p.nev:'?'}<br><span style="font-size:11px;color:var(--text3)">${p?p.kat:''}${e.megjegyzes?(p?' · ':'')+e.megjegyzes:''}</span></td>
+      <td class="td-mono" style="text-align:right">${e.db}</td>
+      <td class="td-mono" style="text-align:right">${fmt(e.ar)}</td>
+      <td class="td-mono" style="text-align:right">${fmt(bev)}</td>
+      <td class="td-mono" style="text-align:right">${fmt(kolt)}</td>
+      <td class="td-mono ${has>=0?'profit-pos':'profit-neg'}" style="text-align:right">${fmt(has)}</td>
+      <td>${fizetesBadge(e)}</td>
+    </tr>`;
+  }
+
+  return sorrend.map((nap, idx)=>{
+    const tetelek = napok[nap];
+    if(tetelek.length===1) return tetelSor(tetelek[0], false, idx);
+
+    const totBev = tetelek.reduce((s2,e)=>s2+e.db*e.ar,0);
+    const totKolt = tetelek.reduce((s2,e)=>s2+e.db*(e.besar!==undefined?e.besar:(products.find(x=>x.id===e.termekId)||{besar:0}).besar),0);
+    const fizetetlen = tetelek.filter(e=>!e.fizetve);
+    const csFizBadge = fizetetlen.length===0
+      ? '<span style="display:inline-block;background:#e8f2ec;color:#2d5a3d;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap;">✓ Mind kifizetve</span>'
+      : `<button class="btn btn-sm btn-primary" onclick="openFizetes('${fizetetlen.map(e=>e.id).join(',')}', true)" style="font-size:11px;padding:4px 10px;">Kifizetve (${fizetetlen.length} db)</button>`;
+    return `<tr style="background:var(--surface2);border-top:2px solid var(--border);cursor:pointer;">
+      <td onclick="toggleScs(${idx})" style="white-space:nowrap;font-weight:600;"><span id="scs-arrow-${idx}" style="font-size:10px;color:var(--text3);margin-right:6px;">▶</span>${nap}</td>
+      <td onclick="toggleScs(${idx})" style="color:var(--text2);">${tetelek.length} tétel ezen a napon</td>
+      <td class="td-mono" onclick="toggleScs(${idx})" style="text-align:right">${tetelek.reduce((s2,e)=>s2+e.db,0)}</td>
+      <td onclick="toggleScs(${idx})"></td>
+      <td class="td-mono" onclick="toggleScs(${idx})" style="text-align:right;font-weight:700;">${fmt(totBev)}</td>
+      <td class="td-mono" onclick="toggleScs(${idx})" style="text-align:right">${fmt(totKolt)}</td>
+      <td class="td-mono ${totBev-totKolt>=0?'profit-pos':'profit-neg'}" onclick="toggleScs(${idx})" style="text-align:right;font-weight:700;">${fmt(totBev-totKolt)}</td>
+      <td>${csFizBadge}</td>
+    </tr>` + tetelek.map(e=>tetelSor(e, true, idx)).join('');
+  }).join('');
+}
+
+function toggleScs(idx){
+  const sorok = document.querySelectorAll('.scs-'+idx);
+  const arrow = document.getElementById('scs-arrow-'+idx);
+  if(!sorok.length) return;
+  const nyitva = sorok[0].style.display !== 'none';
+  sorok.forEach(tr=>{ tr.style.display = nyitva ? 'none' : ''; });
+  if(arrow) arrow.textContent = nyitva ? '▶' : '▼';
 }
 
 // ---------- FIZETÉSI ÁLLAPOT KEZELÉSE ----------
