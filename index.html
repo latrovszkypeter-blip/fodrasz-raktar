@@ -274,6 +274,8 @@ tbody tr:hover td { filter: brightness(0.97); }
   th, td { padding: 8px 6px; }
   /* Fejléc gombok kényelmesen tördelődjenek */
   .top-bar { flex-wrap: wrap; gap: 10px; }
+  /* Bérleti díj űrlap mobilon egy oszlopba */
+  #berleti-form-grid { grid-template-columns: 1fr !important; }
 }
 </style>
 </head>
@@ -310,7 +312,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v4.1 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v4.2 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -359,6 +361,10 @@ tbody tr:hover td { filter: brightness(0.97); }
   <button class="tab" onclick="showTab('rendeles',this)">
     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
     <span>Rendelések</span>
+  </button>
+  <button class="tab" onclick="showTab('berleti',this)">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z"/></svg>
+    <span>Bérleti díj</span>
   </button>
   <button class="tab" onclick="showTab('lomtar',this)">
     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
@@ -620,6 +626,39 @@ tbody tr:hover td { filter: brightness(0.97); }
 </div>
 
 <!-- LOMTÁR -->
+<div id="tab-berleti" class="page">
+  <div class="section-header">
+    <div class="section-title">Bérleti díjak</div>
+    <div style="font-size:13px;color:var(--text2);">Havi bérleti díjak nyilvántartása és kifizetésük követése</div>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1.5fr auto;gap:10px;align-items:end;" id="berleti-form-grid">
+      <div class="form-row" style="margin:0;"><label>Bérlő</label><select id="bd-berlo"></select></div>
+      <div class="form-row" style="margin:0;"><label>Hónap</label><input id="bd-honap" type="month" /></div>
+      <div class="form-row" style="margin:0;"><label>Összeg (Ft)</label><input id="bd-osszeg" type="number" min="0" step="1000" placeholder="0" /></div>
+      <div class="form-row" style="margin:0;"><label>Megjegyzés</label><input id="bd-megjegyzes" type="text" placeholder="opcionális" /></div>
+      <button class="btn btn-primary" onclick="berletiRogzit()" style="height:38px;">+ Rögzítés</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px;">Több bérlőnek is felviheted ugyanazt a hónapot – a lista hónap szerint csoportosítva jelenik meg.</div>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:end;">
+    <div class="form-row" style="margin:0;min-width:150px;"><label>Szűrés bérlőre</label><select id="bd-szuro-berlo" onchange="renderBerleti()"></select></div>
+    <div class="form-row" style="margin:0;min-width:120px;"><label>Év</label><select id="bd-szuro-ev" onchange="renderBerleti()"></select></div>
+    <div class="form-row" style="margin:0;min-width:140px;"><label>Állapot</label>
+      <select id="bd-szuro-allapot" onchange="renderBerleti()">
+        <option value="">Mind</option>
+        <option value="nyitott">Csak kifizetetlen</option>
+        <option value="fizetett">Csak kifizetett</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="berleti-osszegzo" style="margin-bottom:12px;"></div>
+  <div id="berleti-lista"></div>
+</div>
+
 <div id="tab-lomtar" class="page">
   <div class="section-header">
     <div class="section-title">Lomtár</div>
@@ -796,6 +835,7 @@ let nextPid=1,nextBid=1,nextEid=1,editPid=null,editBid=null,mozgPid=null;
 let rendelesek=[];
 let nextRid=1;
 let lomtar=[];
+let berleti=[];
 let saveTimeout=null;
 let isLoading=true;
 let isSaving=false;
@@ -883,7 +923,7 @@ function fixDatum(d){
   return s;
 }
 
-const VART_BACKEND_VERZIO = '3.9'; // a Code.gs-ben lévő BACKEND_VERZIO értéke
+const VART_BACKEND_VERZIO = '4.2'; // a Code.gs-ben lévő BACKEND_VERZIO értéke
 function ellenorizBackendVerzio(v){
   const cimke = document.getElementById('backend-verzio-cimke');
   if(cimke) cimke.textContent = v ? '· backend v'+v : '· backend: RÉGI';
@@ -920,6 +960,13 @@ async function loadFromSheet(silent){
       id:Number(b.id), nev:String(b.nev||''), adoszam:String(b.adoszam||''), telefon:String(b.telefon||''), pin:String(b.pin||'').trim()
     })).filter(b=>b.id && b.nev);
     lomtar = (data.lomtar||[]);
+    berleti = (data.berleti||[]).map(x=>({
+      id:Number(x.id), berloId:Number(x.berloId), honap:String(x.honap||'').slice(0,7),
+      osszeg:Number(x.osszeg)||0,
+      fizetve:(x.fizetve===true || String(x.fizetve||'').toLowerCase()==='igen' || String(x.fizetve||'').toLowerCase()==='true') ? 'igen' : '',
+      fizetesDatum:String(x.fizetesDatum||''), fizetesMod:String(x.fizetesMod||''),
+      megjegyzes:String(x.megjegyzes||'')
+    })).filter(x=>x.id);
     rendelesek = (data.rendelesek||[]).map(r=>({
       id:Number(r.id), berloId:Number(r.berloId), termekId:Number(r.termekId)||0,
       termekNev:r.termekNev||'', db:Number(r.db)||0, megjegyzes:r.megjegyzes||'',
@@ -982,7 +1029,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v4.1');
+console.log('Fodrász Raktár – Admin felület v4.2');
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
   const jsonStr = JSON.stringify(payload || {});
@@ -1097,6 +1144,7 @@ function showTab(t,el){
   if(t==='arazas')renderArazas();
   if(t==='jutalek')renderJutalek();
   if(t==='rendeles')renderRendeles();
+  if(t==='berleti')renderBerleti();
   if(t==='lomtar')renderLomtar();
 }
 
@@ -1930,8 +1978,198 @@ function toggleScs(idx){
   if(arrow) arrow.textContent = nyitva ? '▶' : '▼';
 }
 
-// ---------- FIZETÉSI ÁLLAPOT KEZELÉSE ----------
+
 const FIZ_MOD_NEV = { keszpenz:'Készpénz', utalas:'Utalás' };
+
+// ============ BÉRLETI DÍJAK ============
+const HONAP_NEV = ['január','február','március','április','május','június','július','augusztus','szeptember','október','november','december'];
+function honapCimke(h){
+  if(!h || h.length<7) return h||'';
+  const ev = h.slice(0,4), ho = parseInt(h.slice(5,7));
+  return ev+'. '+(HONAP_NEV[ho-1]||h.slice(5,7));
+}
+
+function renderBerleti(){
+  // Bérlő legördülők feltöltése (a kiválasztás megőrzésével)
+  const opciok = berlok.map(b=>`<option value="${b.id}">${b.nev}</option>`).join('');
+  const sel = document.getElementById('bd-berlo');
+  if(sel){ const ert=sel.value; sel.innerHTML='<option value="">-- Válassz bérlőt --</option>'+opciok; sel.value=ert; }
+  const szSel = document.getElementById('bd-szuro-berlo');
+  if(szSel){ const ert=szSel.value; szSel.innerHTML='<option value="">Minden bérlő</option>'+opciok; szSel.value=ert; }
+
+  // Év legördülő a meglévő adatokból
+  const evek = [...new Set(berleti.map(x=>x.honap.slice(0,4)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+  const mostEv = String(new Date().getFullYear());
+  if(!evek.includes(mostEv)) evek.unshift(mostEv);
+  const evSel = document.getElementById('bd-szuro-ev');
+  if(evSel){
+    const ert = evSel.value;
+    evSel.innerHTML = '<option value="">Minden év</option>'+evek.map(e=>`<option value="${e}">${e}</option>`).join('');
+    evSel.value = ert || mostEv;
+  }
+  // Alapértelmezett hónap: aktuális
+  const hSel = document.getElementById('bd-honap');
+  if(hSel && !hSel.value){
+    const d=new Date();
+    hSel.value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  }
+
+  const fBerlo = document.getElementById('bd-szuro-berlo').value;
+  const fEv = document.getElementById('bd-szuro-ev').value;
+  const fAllapot = document.getElementById('bd-szuro-allapot').value;
+
+  let list = berleti.filter(x=>{
+    if(fBerlo && String(x.berloId)!==String(fBerlo)) return false;
+    if(fEv && x.honap.slice(0,4)!==fEv) return false;
+    if(fAllapot==='nyitott' && x.fizetve) return false;
+    if(fAllapot==='fizetett' && !x.fizetve) return false;
+    return true;
+  }).sort((a,b)=> b.honap.localeCompare(a.honap) || a.berloId-b.berloId);
+
+  // Összegző
+  const totOssz = list.reduce((s,x)=>s+x.osszeg,0);
+  const totFiz = list.filter(x=>x.fizetve).reduce((s,x)=>s+x.osszeg,0);
+  document.getElementById('berleti-osszegzo').innerHTML = list.length ?
+    `<div style="display:flex;gap:20px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;font-size:13px;">
+      <span>Összesen: <strong>${fmt(totOssz)}</strong></span>
+      <span>Kifizetve: <strong class="profit-pos">${fmt(totFiz)}</strong></span>
+      <span>Hátralék: <strong class="${totOssz-totFiz>0?'profit-neg':''}">${fmt(totOssz-totFiz)}</strong></span>
+    </div>` : '';
+
+  const div = document.getElementById('berleti-lista');
+  if(!list.length){ div.innerHTML='<div class="empty-state" style="padding:40px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">Nincs rögzített bérleti díj a szűrőkre</div>'; return; }
+
+  // Hónap szerinti csoportosítás
+  const csop={}; const sorrend=[];
+  list.forEach(x=>{ if(!csop[x.honap]){csop[x.honap]=[];sorrend.push(x.honap);} csop[x.honap].push(x); });
+
+  div.innerHTML = sorrend.map((honap, idx)=>{
+    const tetelek = csop[honap];
+    const hOssz = tetelek.reduce((s,x)=>s+x.osszeg,0);
+    const nyitottak = tetelek.filter(x=>x.fizetve==='');
+    const fizetettek = tetelek.filter(x=>x.fizetve);
+    const fejlecJobb = nyitottak.length===0
+      ? '<span style="background:#e8f2ec;color:#2d5a3d;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap;">✓ Mind kifizetve</span>' +
+        `<button class="btn btn-sm" onclick="event.stopPropagation();berletiFizetesVisszavon('${fizetettek.map(x=>x.id).join(',')}')" title="Kifizetés visszavonása" style="font-size:11px;padding:3px 8px;">↩</button>`
+      : '<span style="background:#fee2e2;color:#991b1b;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap;">⏳ '+nyitottak.length+' db fizetetlen</span>' +
+        `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();openBerletiFizetes('${nyitottak.map(x=>x.id).join(',')}')" style="font-size:11px;padding:3px 9px;white-space:nowrap;">Kifizetés rögzítése</button>`;
+
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">
+      <div style="background:var(--surface2);display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;flex-wrap:wrap;">
+        <div onclick="toggleBd('bd${idx}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:180px;">
+          <span id="bd${idx}-arrow" style="font-size:10px;color:var(--text3);">▼</span>
+          <span style="font-weight:600;font-size:14px;">${honapCimke(honap)}</span>
+          <span style="font-size:12px;color:var(--text2);">${tetelek.length} bérlő · <strong>${fmt(hOssz)}</strong></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${fejlecJobb}</div>
+      </div>
+      <div id="bd${idx}">
+        ${tetelek.map(x=>{
+          const b = berlok.find(y=>y.id===x.berloId);
+          const badge = x.fizetve
+            ? `<span onclick="berletiFizetesVisszavon('${x.id}')" title="Kattints a visszavonáshoz" style="cursor:pointer;background:#e8f2ec;color:#2d5a3d;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap;">✓ ${x.fizetesDatum||''}${FIZ_MOD_NEV[x.fizetesMod]?' · '+FIZ_MOD_NEV[x.fizetesMod]:''}</span>`
+            : `<span onclick="openBerletiFizetes('${x.id}')" title="Kattints a kifizetés rögzítéséhez" style="cursor:pointer;background:#fee2e2;color:#991b1b;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap;">⏳ Nincs kifizetve</span>`;
+          return `<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="min-width:0;flex:1;">
+              <div style="font-weight:500;font-size:13px;">${b?b.nev:'? (törölt bérlő)'}</div>
+              ${x.megjegyzes?`<div style="font-size:11px;color:var(--text3);">${x.megjegyzes}</div>`:''}
+            </div>
+            <div style="font-weight:600;font-size:14px;white-space:nowrap;">${fmt(x.osszeg)}</div>
+            ${badge}
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-sm" onclick="berletiSzerkeszt(${x.id})" title="Összeg módosítása" style="padding:4px 8px;">✎</button>
+              <button class="btn btn-sm btn-danger" onclick="berletiTorles(${x.id})" title="Törlés" style="padding:4px 8px;">×</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleBd(id){
+  const el=document.getElementById(id), arrow=document.getElementById(id+'-arrow');
+  if(!el) return;
+  const nyitva = el.style.display!=='none';
+  el.style.display = nyitva?'none':'block';
+  if(arrow) arrow.textContent = nyitva?'▶':'▼';
+}
+
+async function berletiRogzit(){
+  const berloId = parseInt(document.getElementById('bd-berlo').value);
+  const honap = document.getElementById('bd-honap').value;
+  const osszeg = parseInt(document.getElementById('bd-osszeg').value)||0;
+  const megjegyzes = document.getElementById('bd-megjegyzes').value.trim();
+  if(!berloId){ alert('Válassz bérlőt!'); return; }
+  if(!honap){ alert('Add meg a hónapot!'); return; }
+  if(osszeg<=0){ alert('Add meg az összeget!'); return; }
+  const letezo = berleti.find(x=>x.berloId===berloId && x.honap===honap);
+  if(letezo && !confirm('Ehhez a bérlőhöz erre a hónapra már van rögzített díj ('+fmt(letezo.osszeg)+').\n\nBiztosan felviszed még egyszer?')) return;
+
+  const uj = { id:0, berloId, honap, osszeg, fizetve:'', fizetesDatum:'', fizetesMod:'', megjegyzes };
+  await apiMuvelet('berletiRogzit', { ujTetelek:[uj] }, function(data){
+    uj.id = (data.ids && data.ids[0]) || 0;
+    berleti.push(uj);
+    document.getElementById('bd-osszeg').value='';
+    document.getElementById('bd-megjegyzes').value='';
+    renderBerleti();
+  });
+}
+
+async function berletiSzerkeszt(id){
+  const x = berleti.find(y=>y.id===id);
+  if(!x) return;
+  const ujOsszeg = prompt('Bérleti díj összege (Ft):', x.osszeg);
+  if(ujOsszeg===null) return;
+  const ossz = parseInt(ujOsszeg)||0;
+  if(ossz<=0){ alert('Érvényes összeget adj meg!'); return; }
+  const ujMegj = prompt('Megjegyzés (opcionális):', x.megjegyzes||'');
+  if(ujMegj===null) return;
+  await apiMuvelet('berletiModosit', { id, osszeg:ossz, megjegyzes:ujMegj }, function(){
+    x.osszeg = ossz; x.megjegyzes = ujMegj;
+    renderBerleti();
+  });
+}
+
+async function berletiTorles(id){
+  const x = berleti.find(y=>y.id===id);
+  if(!x) return;
+  const b = berlok.find(y=>y.id===x.berloId);
+  if(!confirm('Törlöd ezt a bérleti díj tételt?\n\n'+(b?b.nev:'?')+' · '+honapCimke(x.honap)+' · '+fmt(x.osszeg)+'\n\n30 napig visszaállítható lesz a Lomtárból.')) return;
+  await apiMuvelet('torles', { tipus:'berleti', ids:[id], lomtarba:true }, function(){
+    berleti = berleti.filter(y=>y.id!==id);
+    renderBerleti();
+    loadFromSheet(true);
+  });
+}
+
+let berletiTargetIds = [];
+function openBerletiFizetes(idsCsv){
+  berletiTargetIds = String(idsCsv).split(',').map(Number).filter(n=>n);
+  if(!berletiTargetIds.length) return;
+  const ossz = berleti.filter(x=>berletiTargetIds.includes(x.id)).reduce((s,x)=>s+x.osszeg,0);
+  document.getElementById('fizetesTitle').textContent = 'Bérleti díj kifizetése';
+  document.getElementById('fizetesInfo').innerHTML = berletiTargetIds.length+' tétel · Összesen: <strong>'+fmt(ossz)+'</strong>';
+  const ma = new Date();
+  document.getElementById('f-datum').value = ma.getFullYear()+'-'+String(ma.getMonth()+1).padStart(2,'0')+'-'+String(ma.getDate()).padStart(2,'0');
+  document.getElementById('fizetesModal').dataset.mod = 'berleti';
+  document.getElementById('fizetesModal').style.display='flex';
+}
+
+async function berletiFizetesVisszavon(idsCsv){
+  const ids = String(idsCsv).split(',').map(Number).filter(n=>n);
+  if(!ids.length) return;
+  if(!confirm('Visszavonod a kifizetést '+(ids.length>1?('mind a '+ids.length+' tételnél'):'ennél a tételnél')+'?')) return;
+  await apiMuvelet('fizetesValtas', { tipus:'berleti', ids, fizetve:false }, function(){
+    ids.forEach(id=>{
+      const x = berleti.find(y=>y.id===id);
+      if(x){ x.fizetve=''; x.fizetesDatum=''; x.fizetesMod=''; }
+    });
+    renderBerleti();
+  });
+}
+
+// ---------- FIZETÉSI ÁLLAPOT KEZELÉSE ----------
 
 function fizetesBadge(e){
   if(e.fizetve){
@@ -1949,6 +2187,8 @@ let fizetesTargetIds = [];
 function openFizetes(idsCsv, tobbes){
   fizetesTargetIds = String(idsCsv).split(',').map(Number).filter(n=>n);
   if(!fizetesTargetIds.length) return;
+  document.getElementById('fizetesModal').dataset.mod = 'eladas';
+  document.getElementById('fizetesTitle').textContent = 'Kifizetés rögzítése';
   const ossz = eladas.filter(e=>fizetesTargetIds.includes(e.id)).reduce((s,e)=>s+e.db*e.ar,0);
   document.getElementById('fizetesInfo').innerHTML = tobbes
     ? fizetesTargetIds.length+' tétel · Összesen: <strong>'+fmt(ossz)+'</strong>'
@@ -1963,22 +2203,33 @@ async function saveFizetes(){
   const datum = document.getElementById('f-datum').value;
   const mod = document.getElementById('f-mod').value;
   if(!datum){ alert('Add meg a fizetés dátumát!'); return; }
-  const ids = fizetesTargetIds.slice();
+  const berletiMod = document.getElementById('fizetesModal').dataset.mod === 'berleti';
+  const ids = berletiMod ? berletiTargetIds.slice() : fizetesTargetIds.slice();
   closeFizetes();
-  await apiMuvelet('fizetesValtas', { ids, fizetve:true, fizetesDatum:datum, fizetesMod:mod }, function(){
-    ids.forEach(id=>{
-      const e = eladas.find(x=>x.id===id);
-      if(e){ e.fizetve='igen'; e.fizetesDatum=datum; e.fizetesMod=mod; }
+  if(berletiMod){
+    await apiMuvelet('fizetesValtas', { tipus:'berleti', ids, fizetve:true, fizetesDatum:datum, fizetesMod:mod }, function(){
+      ids.forEach(id=>{
+        const x = berleti.find(y=>y.id===id);
+        if(x){ x.fizetve='igen'; x.fizetesDatum=datum; x.fizetesMod=mod; }
+      });
+      renderBerleti();
     });
-    renderSzamla();
-  });
+  } else {
+    await apiMuvelet('fizetesValtas', { tipus:'eladas', ids, fizetve:true, fizetesDatum:datum, fizetesMod:mod }, function(){
+      ids.forEach(id=>{
+        const e = eladas.find(x=>x.id===id);
+        if(e){ e.fizetve='igen'; e.fizetesDatum=datum; e.fizetesMod=mod; }
+      });
+      renderSzamla();
+    });
+  }
 }
 
 async function visszavonFizetesCsoport(idsCsv){
   const ids = String(idsCsv).split(',').map(Number).filter(n=>n);
   if(!ids.length) return;
   if(!confirm('Visszavonod a kifizetést mind a '+ids.length+' tételnél?\n\nUtána újra "nincs kifizetve" állapotba kerülnek.')) return;
-  await apiMuvelet('fizetesValtas', { ids, fizetve:false }, function(){
+  await apiMuvelet('fizetesValtas', { tipus:'eladas', ids, fizetve:false }, function(){
     ids.forEach(id=>{
       const e = eladas.find(x=>x.id===id);
       if(e){ e.fizetve=''; e.fizetesDatum=''; e.fizetesMod=''; }
@@ -1989,7 +2240,7 @@ async function visszavonFizetesCsoport(idsCsv){
 
 async function visszavonFizetes(id){
   if(!confirm('Visszavonod a kifizetést ennél a tételnél?')) return;
-  await apiMuvelet('fizetesValtas', { ids:[id], fizetve:false }, function(){
+  await apiMuvelet('fizetesValtas', { tipus:'eladas', ids:[id], fizetve:false }, function(){
     const e = eladas.find(x=>x.id===id);
     if(e){ e.fizetve=''; e.fizetesDatum=''; e.fizetesMod=''; }
     renderSzamla();
