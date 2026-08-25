@@ -126,7 +126,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 <!-- BEJELENTKEZÉS - 1. lépés: bérlő választás -->
 <div id="step-valaszt" class="login-wrap">
   <div class="login-card">
-    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:var(--text3);opacity:.75;">v3.9</div>
+    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:var(--text3);opacity:.75;">v4.0</div>
     <div class="login-logo">
       <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.8">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
@@ -376,7 +376,7 @@ const JUTALEK_PCT = 18;
 const CSAK_BERLOI_KAT = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA'];
 
 let products = [], berlok = [], eladas = [], rendelesek = [];
-const APP_VERZIO = '3.9';
+const APP_VERZIO = '4.0';
 console.log('Fodrász Raktár – Bérlői felület v' + APP_VERZIO);
 let bejelentkezettBerlo = null;
 let nextRid = 1;
@@ -881,6 +881,19 @@ function bRenderNaplo(){
   const div = document.getElementById('b-naplo-lista');
   if(!list.length){ div.innerHTML='<div class="empty-state">Nincs rögzített eladás</div>'; document.getElementById('b-naplo-osszeg').innerHTML=''; return; }
 
+  // Fizetési állapot sáv a lista tetején (jól látható összegzés)
+  const sajatOsszes = list.filter(function(e){return e.tipus!=='vendeg';});
+  const nyitottTetelek = sajatOsszes.filter(function(e){return !e.fizetve;});
+  const nyitottOsszeg = nyitottTetelek.reduce(function(s2,e){return s2+e.db*e.ar;},0);
+  var fizSav = '';
+  if(sajatOsszes.length){
+    fizSav = nyitottTetelek.length===0
+      ? '<div style="background:#e8f2ec;color:#2d5a3d;border:1px solid #c6e0cc;border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:10px;font-size:13px;font-weight:600;">✓ Minden vásárlásod ki van fizetve</div>'
+      : '<div style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">'+
+        '<span style="font-size:13px;font-weight:600;">⏳ Kifizetetlen vásárlás ('+nyitottTetelek.length+' tétel)</span>'+
+        '<span style="font-size:15px;font-weight:700;">'+fmt(nyitottOsszeg)+'</span></div>';
+  }
+
   // Az együtt rögzített tételek (azonos perc + rögzítő) egy lenyitható kártyára kerülnek
   const csoportok = {};
   const sorrend = [];
@@ -890,7 +903,7 @@ function bRenderNaplo(){
     csoportok[key].push(e);
   });
 
-  div.innerHTML = sorrend.map(function(key, idx){
+  div.innerHTML = fizSav + sorrend.map(function(key, idx){
     const tetelek = csoportok[key];
     // Egytételes rögzítés: marad a megszokott sima kártya
     if(tetelek.length === 1) return bNaploTetel(tetelek[0], false);

@@ -310,7 +310,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v4.0</div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v4.1 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -883,8 +883,10 @@ function fixDatum(d){
   return s;
 }
 
-const VART_BACKEND_VERZIO = '3.9';
+const VART_BACKEND_VERZIO = '3.9'; // a Code.gs-ben lévő BACKEND_VERZIO értéke
 function ellenorizBackendVerzio(v){
+  const cimke = document.getElementById('backend-verzio-cimke');
+  if(cimke) cimke.textContent = v ? '· backend v'+v : '· backend: RÉGI';
   const sav = document.getElementById('backend-warn');
   if(!sav) return;
   if(v === VART_BACKEND_VERZIO){ sav.style.display='none'; return; }
@@ -980,7 +982,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v4.0');
+console.log('Fodrász Raktár – Admin felület v4.1');
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
   const jsonStr = JSON.stringify(payload || {});
