@@ -274,8 +274,9 @@ tbody tr:hover td { filter: brightness(0.97); }
   th, td { padding: 8px 6px; }
   /* Fejléc gombok kényelmesen tördelődjenek */
   .top-bar { flex-wrap: wrap; gap: 10px; }
-  /* Bérleti díj űrlap mobilon egy oszlopba */
-  #berleti-form-grid { grid-template-columns: 1fr !important; }
+  /* Bérleti díj és export űrlap mobilon egy oszlopba */
+  #berleti-form-grid, #export-grid { grid-template-columns: 1fr !important; }
+  #export-gyors .btn { flex: 1 1 calc(50% - 4px); justify-content: center; }
 }
 </style>
 </head>
@@ -312,7 +313,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v5.0 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v5.2 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -365,6 +366,10 @@ tbody tr:hover td { filter: brightness(0.97); }
   <button class="tab" onclick="showTab('berleti',this)">
     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z"/></svg>
     <span>Bérleti díj</span>
+  </button>
+  <button class="tab" onclick="showTab('export',this)">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+    <span>Export</span>
   </button>
   <button class="tab" onclick="showTab('lomtar',this)">
     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
@@ -626,6 +631,39 @@ tbody tr:hover td { filter: brightness(0.97); }
 </div>
 
 <!-- LOMTÁR -->
+<div id="tab-export" class="page">
+  <div class="section-header">
+    <div class="section-title">Export a könyvelésnek</div>
+    <div style="font-size:13px;color:var(--text2);">Időszak kiválasztása, majd letöltés Excel vagy CSV formátumban</div>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:14px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;" id="export-gyors">
+      <button class="btn btn-sm" onclick="exportIdoszak('elozoHonap')">Előző hónap</button>
+      <button class="btn btn-sm" onclick="exportIdoszak('ezHonap')">Aktuális hónap</button>
+      <button class="btn btn-sm" onclick="exportIdoszak('negyedev')">Előző negyedév</button>
+      <button class="btn btn-sm" onclick="exportIdoszak('ev')">Idei év</button>
+      <button class="btn btn-sm" onclick="exportIdoszak('mind')">Teljes időszak</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:end;" id="export-grid">
+      <div class="form-row" style="margin:0;"><label>Kezdő dátum</label><input id="exp-tol" type="date" onchange="renderExport()" /></div>
+      <div class="form-row" style="margin:0;"><label>Záró dátum</label><input id="exp-ig" type="date" onchange="renderExport()" /></div>
+      <div class="form-row" style="margin:0;"><label>ÁFA kulcs (%) – 0 = nincs bontás</label><input id="exp-afa" type="number" min="0" max="100" value="27" onchange="renderExport()" /></div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px;">A rendszerben bruttó árak vannak. Az ÁFA kulcs megadásával a nettó és ÁFA oszlopok visszaszámolódnak – ha a könyvelőd másképp kéri, írd át, vagy állítsd 0-ra.</div>
+  </div>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+    <button class="btn btn-primary" onclick="exportExcel()" id="exp-excel-gomb" style="flex:1;min-width:220px;justify-content:center;">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+      Teljes Excel letöltése (minden munkalap)
+    </button>
+    <button class="btn" onclick="exportCsvMind()" style="flex:1;min-width:180px;justify-content:center;">Összes CSV letöltése</button>
+  </div>
+
+  <div id="export-lista"></div>
+</div>
+
 <div id="tab-berleti" class="page">
   <div class="section-header">
     <div class="section-title">Bérleti díjak</div>
@@ -924,7 +962,7 @@ function fixDatum(d){
   return s;
 }
 
-const VART_BACKEND_VERZIO = '5.0'; // a Code.gs-ben lévő BACKEND_VERZIO értéke
+const VART_BACKEND_VERZIO = '5.1'; // a Code.gs-ben lévő BACKEND_VERZIO értéke
 
 // ---------- HELYI GYORSÍTÓTÁR ----------
 // A legutóbbi adatokat elmentjük a böngészőbe, így a következő indításnál
@@ -1068,7 +1106,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v5.0');
+console.log('Fodrász Raktár – Admin felület v5.2');
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
   const jsonStr = JSON.stringify(payload || {});
@@ -1184,6 +1222,7 @@ function showTab(t,el){
   if(t==='jutalek')renderJutalek();
   if(t==='rendeles')renderRendeles();
   if(t==='berleti')renderBerleti();
+  if(t==='export')renderExport();
   if(t==='lomtar'){
     if(lomtarElavult){
       document.getElementById('lomtar-lista').innerHTML='<div class="empty-state" style="padding:40px;">Lomtár betöltése...</div>';
@@ -2032,6 +2071,530 @@ function toggleScs(idx){
 
 
 const FIZ_MOD_NEV = { keszpenz:'Készpénz', utalas:'Utalás' };
+
+
+// ============================================================
+// EXPORT A KÖNYVELÉSNEK
+// ============================================================
+
+function expAfaKulcs(){
+  const v = parseFloat(document.getElementById('exp-afa').value);
+  return (isNaN(v) || v < 0) ? 0 : v;
+}
+// Bruttóból nettó és ÁFA visszaszámolása
+function expNetto(brutto, afa){ return afa > 0 ? Math.round(brutto / (1 + afa/100) * 100) / 100 : brutto; }
+function expAfaErtek(brutto, afa){ return afa > 0 ? Math.round((brutto - expNetto(brutto, afa)) * 100) / 100 : 0; }
+
+function exportIdoszak(mit){
+  const ma = new Date();
+  const p2 = n => String(n).padStart(2,'0');
+  const nap = d => d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
+  let tol, ig;
+  if(mit==='ezHonap'){
+    tol = new Date(ma.getFullYear(), ma.getMonth(), 1);
+    ig = new Date(ma.getFullYear(), ma.getMonth()+1, 0);
+  } else if(mit==='elozoHonap'){
+    tol = new Date(ma.getFullYear(), ma.getMonth()-1, 1);
+    ig = new Date(ma.getFullYear(), ma.getMonth(), 0);
+  } else if(mit==='negyedev'){
+    const qElso = Math.floor(ma.getMonth()/3)*3 - 3;
+    tol = new Date(ma.getFullYear(), qElso, 1);
+    ig = new Date(ma.getFullYear(), qElso+3, 0);
+  } else if(mit==='ev'){
+    tol = new Date(ma.getFullYear(), 0, 1);
+    ig = new Date(ma.getFullYear(), 11, 31);
+  } else { // mind
+    document.getElementById('exp-tol').value = '';
+    document.getElementById('exp-ig').value = '';
+    renderExport();
+    return;
+  }
+  document.getElementById('exp-tol').value = nap(tol);
+  document.getElementById('exp-ig').value = nap(ig);
+  renderExport();
+}
+
+// Az időszakra szűrt adatok összeállítása
+function expAdatok(){
+  const tol = document.getElementById('exp-tol').value;
+  const ig = document.getElementById('exp-ig').value;
+  const afa = expAfaKulcs();
+  const igVeg = ig ? ig + ' 23:59' : '';
+
+  const eladasok = eladas.filter(e=>{
+    if(tol && e.datum < tol) return false;
+    if(igVeg && e.datum > igVeg) return false;
+    return true;
+  }).sort((a,b)=>a.datum.localeCompare(b.datum));
+
+  const berletiek = berleti.filter(x=>{
+    if(tol && x.honap < tol.slice(0,7)) return false;
+    if(ig && x.honap > ig.slice(0,7)) return false;
+    return true;
+  }).sort((a,b)=> a.honap.localeCompare(b.honap) || a.berloId-b.berloId);
+
+  return { tol, ig, afa, eladasok, berletiek };
+}
+
+const FIZ_MOD_SZOVEG = { keszpenz:'Készpénz', utalas:'Utalás' };
+const JUT_STAT_SZOVEG = { fuggoben:'Függőben', kifizetve:'Kifizetve', berletbol:'Bérletiből levonva' };
+
+// Minden exportálható tábla előállítása: {nev, fejlec, sorok}
+function expTablak(){
+  const d = expAdatok();
+  const afa = d.afa;
+  const berloNev = id => { const b = berlok.find(x=>x.id===id); return b ? b.nev : '(törölt bérlő)'; };
+  const berloAdo = id => { const b = berlok.find(x=>x.id===id); return b ? (b.adoszam||'') : ''; };
+
+  // --- 1. Eladások tételesen ---
+  const eladasSorok = d.eladasok.map(e=>{
+    const p = products.find(x=>x.id===e.termekId);
+    const brutto = e.db * e.ar;
+    const besar = e.besar !== undefined ? e.besar : (p ? p.besar : 0);
+    const bekTot = e.db * besar;
+    const vendeg = (e.tipus||'berlo')==='vendeg';
+    const jut = vendeg ? (e.jutalekOsszeg||0) : 0;
+    return [
+      e.datum,
+      berloNev(e.berloId),
+      berloAdo(e.berloId),
+      vendeg ? 'Vendégeladás' : 'Bérlői vásárlás',
+      p ? p.kat : '',
+      p ? p.nev : '(törölt termék)',
+      e.db,
+      e.ar,
+      brutto,
+      expNetto(brutto, afa),
+      expAfaErtek(brutto, afa),
+      besar,
+      bekTot,
+      brutto - bekTot - jut,
+      jut,
+      vendeg ? (JUT_STAT_SZOVEG[e.jutalekStatusz||'fuggoben'] || '') : '',
+      e.rogzitette === 'berlo' ? 'Bérlő' : 'Admin',
+      vendeg ? '' : (e.fizetve ? 'Kifizetve' : 'Nyitott'),
+      vendeg ? '' : (e.fizetesDatum || ''),
+      vendeg ? '' : (FIZ_MOD_SZOVEG[e.fizetesMod] || ''),
+      e.megjegyzes || ''
+    ];
+  });
+
+  // --- 2. Bérlői összesítő ---
+  const osszesitoMap = {};
+  const biztosit = id => {
+    if(!osszesitoMap[id]) osszesitoMap[id] = { berloId:id, vasBrutto:0, vendBrutto:0, jutalek:0, berlet:0, fizetve:0, nyitott:0 };
+    return osszesitoMap[id];
+  };
+  d.eladasok.forEach(e=>{
+    const r = biztosit(e.berloId);
+    const brutto = e.db * e.ar;
+    if((e.tipus||'berlo')==='vendeg'){
+      r.vendBrutto += brutto;
+      r.jutalek += (e.jutalekOsszeg||0);
+    } else {
+      r.vasBrutto += brutto;
+      if(e.fizetve) r.fizetve += brutto; else r.nyitott += brutto;
+    }
+  });
+  d.berletiek.forEach(x=>{
+    const r = biztosit(x.berloId);
+    r.berlet += x.osszeg;
+    if(x.fizetve) r.fizetve += x.osszeg; else r.nyitott += x.osszeg;
+  });
+  const osszesitoSorok = Object.keys(osszesitoMap).map(k=>{
+    const r = osszesitoMap[k];
+    const szamlazando = r.vasBrutto + r.berlet;
+    return [
+      berloNev(r.berloId), berloAdo(r.berloId),
+      r.vasBrutto, r.berlet, szamlazando,
+      expNetto(szamlazando, afa), expAfaErtek(szamlazando, afa),
+      r.fizetve, r.nyitott,
+      r.vendBrutto, r.jutalek
+    ];
+  }).sort((a,b)=> String(a[0]).localeCompare(String(b[0]), 'hu'));
+
+  // --- 3. Bérleti díjak ---
+  const berletiSorok = d.berletiek.map(x=>[
+    x.honap, berloNev(x.berloId), berloAdo(x.berloId),
+    x.osszeg, expNetto(x.osszeg, afa), expAfaErtek(x.osszeg, afa),
+    x.fizetve ? 'Kifizetve' : 'Nyitott',
+    x.fizetesDatum || '', FIZ_MOD_SZOVEG[x.fizetesMod] || '',
+    x.megjegyzes || ''
+  ]);
+
+  // --- 4. Jutalékok (vendégeladásokból) ---
+  const jutalekSorok = d.eladasok.filter(e=>(e.tipus||'berlo')==='vendeg').map(e=>{
+    const p = products.find(x=>x.id===e.termekId);
+    return [
+      e.datum, berloNev(e.berloId), berloAdo(e.berloId),
+      p ? p.kat : '', p ? p.nev : '(törölt termék)',
+      e.db, e.db * e.ar, e.jutalekOsszeg || 0,
+      JUT_STAT_SZOVEG[e.jutalekStatusz||'fuggoben'] || ''
+    ];
+  });
+
+  // --- 5. Készlet pillanatkép (mai állapot, nem időszakfüggő) ---
+  const keszletSorok = products.slice().sort((a,b)=>
+    String(a.kat).localeCompare(String(b.kat),'hu') || String(a.nev).localeCompare(String(b.nev),'hu')
+  ).map(p=>[
+    p.kat, p.nev, p.keszlet, p.besar, p.keszlet * p.besar,
+    p.fogyasztoiar || p.elar, p.keszlet * (p.fogyasztoiar || p.elar)
+  ]);
+
+  const afaFej = afa > 0;
+  return [
+    { kulcs:'eladasok', nev:'Eladások tételesen',
+      fejlec:['Dátum','Bérlő','Adószám','Típus','Kategória','Termék','Db','Egységár bruttó','Bruttó összeg',
+              afaFej?'Nettó':'Nettó (nincs bontás)', 'ÁFA ('+afa+'%)','Beszerzési egységár','Beszerzési összeg',
+              'Árrés','Jutalék','Jutalék státusz','Rögzítette','Fizetve','Fizetés dátuma','Fizetés módja','Megjegyzés'],
+      sorok: eladasSorok },
+    { kulcs:'osszesito', nev:'Bérlői összesítő',
+      fejlec:['Bérlő','Adószám','Bérlői vásárlás bruttó','Bérleti díj bruttó','Számlázandó bruttó',
+              'Számlázandó nettó','ÁFA ('+afa+'%)','Ebből kifizetve','Hátralék','Vendégeladás bruttó','Jutalék (18%)'],
+      sorok: osszesitoSorok },
+    { kulcs:'berleti', nev:'Bérleti díjak',
+      fejlec:['Hónap','Bérlő','Adószám','Bruttó','Nettó','ÁFA ('+afa+'%)','Állapot','Fizetés dátuma','Fizetés módja','Megjegyzés'],
+      sorok: berletiSorok },
+    { kulcs:'jutalekok', nev:'Jutalékok',
+      fejlec:['Dátum','Bérlő','Adószám','Kategória','Termék','Db','Eladás bruttó','Jutalék','Státusz'],
+      sorok: jutalekSorok },
+    { kulcs:'keszlet', nev:'Készlet (mai állapot)',
+      fejlec:['Kategória','Termék','Készlet (db)','Beszerzési egységár','Beszerzési érték','Fogyasztói ár','Készlet fogyasztói értéken'],
+      sorok: keszletSorok }
+  ];
+}
+
+function renderExport(){
+  const div = document.getElementById('export-lista');
+  if(!div) return;
+  const d = expAdatok();
+  const tablak = expTablak();
+  const idoszak = (d.tol || 'kezdetektől') + ' – ' + (d.ig || 'máig');
+
+  const osszBrutto = d.eladasok.filter(e=>(e.tipus||'berlo')!=='vendeg').reduce((s,e)=>s+e.db*e.ar,0);
+  const vendBrutto = d.eladasok.filter(e=>(e.tipus||'berlo')==='vendeg').reduce((s,e)=>s+e.db*e.ar,0);
+  const berletOssz = d.berletiek.reduce((s,x)=>s+x.osszeg,0);
+
+  div.innerHTML =
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px;">' +
+      '<div style="font-weight:600;margin-bottom:8px;">Időszak: ' + idoszak + '</div>' +
+      '<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:13px;">' +
+        '<span>Bérlői vásárlás: <strong>'+fmt(osszBrutto)+'</strong></span>' +
+        '<span>Bérleti díj: <strong>'+fmt(berletOssz)+'</strong></span>' +
+        '<span>Vendégeladás: <strong>'+fmt(vendBrutto)+'</strong></span>' +
+      '</div>' +
+    '</div>' +
+    tablak.map(function(t){
+      return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">' +
+        '<div><div style="font-weight:600;font-size:14px;">'+t.nev+'</div>' +
+        '<div style="font-size:12px;color:var(--text3);">'+t.sorok.length+' sor · '+t.fejlec.length+' oszlop</div></div>' +
+        '<button class="btn btn-sm" onclick="exportCsvEgy(\'' + t.kulcs + '\')"' + (t.sorok.length?'':' disabled') + '>CSV</button>' +
+      '</div>';
+    }).join('');
+}
+
+// ---------- LETÖLTÉS ----------
+function expFajlNev(kiterj, resz){
+  const d = expAdatok();
+  const idoszak = (d.tol || 'kezdet') + '_' + (d.ig || 'ma');
+  return 'fodrasz_' + (resz ? resz + '_' : '') + idoszak + '.' + kiterj;
+}
+
+function expLetolt(blob, nev){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nev;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+}
+
+// ---------- CSV ----------
+function expCsvSzoveg(tabla){
+  const cella = v => {
+    if(v === null || v === undefined) return '';
+    if(typeof v === 'number'){
+      // magyar tizedesvessző, hogy az Excel számként ismerje fel
+      return (Math.round(v*100)/100).toString().replace('.', ',');
+    }
+    const sz = String(v);
+    return /[";\n]/.test(sz) ? '"' + sz.replace(/"/g,'""') + '"' : sz;
+  };
+  const sorok = [tabla.fejlec].concat(tabla.sorok);
+  // BOM + pontosvessző: a magyar Excel így nyitja meg helyesen az ékezeteket
+  return '﻿' + sorok.map(r => r.map(cella).join(';')).join('\r\n');
+}
+
+function exportCsvEgy(kulcs){
+  const t = expTablak().find(x=>x.kulcs===kulcs);
+  if(!t || !t.sorok.length){ alert('Ebben az időszakban nincs adat ehhez a táblához.'); return; }
+  expLetolt(new Blob([expCsvSzoveg(t)], {type:'text/csv;charset=utf-8'}), expFajlNev('csv', t.kulcs));
+}
+
+function exportCsvMind(){
+  const tablak = expTablak().filter(t=>t.sorok.length);
+  if(!tablak.length){ alert('Ebben az időszakban nincs exportálható adat.'); return; }
+  // A böngészők egymás után több letöltést is engednek, kis szünettel
+  tablak.forEach(function(t, i){
+    setTimeout(function(){
+      expLetolt(new Blob([expCsvSzoveg(t)], {type:'text/csv;charset=utf-8'}), expFajlNev('csv', t.kulcs));
+    }, i * 600);
+  });
+}
+
+// ---------- EXCEL ----------
+
+// ============================================================
+// XLSX ÍRÓ - külső könyvtár nélkül
+// Az .xlsx valójában egy ZIP néhány XML fájllal. Itt tömörítés
+// nélküli (STORE) ZIP-et készítünk, amit az Excel és a Google
+// Sheets is natívan megnyit. Nincs CDN, nincs függőség.
+// ============================================================
+
+const _crcTabla = (function(){
+  const t = new Uint32Array(256);
+  for(let n=0; n<256; n++){
+    let c = n;
+    for(let k=0; k<8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function _crc32(bajtok){
+  let c = 0xFFFFFFFF;
+  for(let i=0; i<bajtok.length; i++) c = _crcTabla[(c ^ bajtok[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function _utf8(sz){
+  if(typeof TextEncoder !== 'undefined') return new TextEncoder().encode(sz);
+  const ki = [];
+  for(let i=0; i<sz.length; i++){
+    let c = sz.charCodeAt(i);
+    if(c < 0x80) ki.push(c);
+    else if(c < 0x800){ ki.push(0xC0|(c>>6), 0x80|(c&63)); }
+    else if(c >= 0xD800 && c <= 0xDBFF){
+      const c2 = sz.charCodeAt(++i);
+      c = 0x10000 + ((c & 0x3FF) << 10) + (c2 & 0x3FF);
+      ki.push(0xF0|(c>>18), 0x80|((c>>12)&63), 0x80|((c>>6)&63), 0x80|(c&63));
+    }
+    else { ki.push(0xE0|(c>>12), 0x80|((c>>6)&63), 0x80|(c&63)); }
+  }
+  return new Uint8Array(ki);
+}
+
+function _zipKeszit(fajlok){
+  // fajlok: [{ nev, adat(Uint8Array) }]
+  const darabok = [];
+  const kozponti = [];
+  let eltolas = 0;
+
+  const u16 = n => [n & 0xFF, (n>>8) & 0xFF];
+  const u32 = n => [n & 0xFF, (n>>8) & 0xFF, (n>>16) & 0xFF, (n>>24) & 0xFF];
+
+  fajlok.forEach(function(f){
+    const nevB = _utf8(f.nev);
+    const crc = _crc32(f.adat);
+    const meret = f.adat.length;
+
+    const fejlec = [].concat(
+      u32(0x04034b50), u16(20), u16(0x0800), u16(0),   // aláírás, verzió, UTF-8 zászló, STORE
+      u16(0), u16(0),                                   // idő, dátum
+      u32(crc), u32(meret), u32(meret),
+      u16(nevB.length), u16(0)
+    );
+    const fejlecB = new Uint8Array(fejlec);
+    darabok.push(fejlecB, nevB, f.adat);
+
+    kozponti.push({ nev: nevB, crc: crc, meret: meret, eltolas: eltolas });
+    eltolas += fejlecB.length + nevB.length + meret;
+  });
+
+  const kozpontiKezdet = eltolas;
+  let kozpontiMeret = 0;
+  kozponti.forEach(function(k){
+    const rek = [].concat(
+      u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0),
+      u16(0), u16(0),
+      u32(k.crc), u32(k.meret), u32(k.meret),
+      u16(k.nev.length), u16(0), u16(0), u16(0), u16(0),
+      u32(0), u32(k.eltolas)
+    );
+    const rekB = new Uint8Array(rek);
+    darabok.push(rekB, k.nev);
+    kozpontiMeret += rekB.length + k.nev.length;
+  });
+
+  darabok.push(new Uint8Array([].concat(
+    u32(0x06054b50), u16(0), u16(0),
+    u16(kozponti.length), u16(kozponti.length),
+    u32(kozpontiMeret), u32(kozpontiKezdet), u16(0)
+  )));
+
+  let ossz = 0;
+  darabok.forEach(d => ossz += d.length);
+  const ki = new Uint8Array(ossz);
+  let poz = 0;
+  darabok.forEach(function(d){ ki.set(d, poz); poz += d.length; });
+  return ki;
+}
+
+function _xmlEsc(sz){
+  return String(sz).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&apos;')
+    // XML-ben tiltott vezérlőkarakterek kiszűrése
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');
+}
+
+function _oszlopBetu(n){ // 1 -> A, 27 -> AA
+  let sz = '';
+  while(n > 0){ const m = (n-1) % 26; sz = String.fromCharCode(65+m) + sz; n = Math.floor((n-1)/26); }
+  return sz;
+}
+
+function _munkalapXml(fejlec, sorok, szelessegek){
+  let x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<sheetViews><sheetView workbookViewId="0">' +
+    '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' +
+    '</sheetView></sheetViews>';
+
+  if(szelessegek && szelessegek.length){
+    x += '<cols>';
+    szelessegek.forEach(function(sz, i){
+      x += '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+sz+'" customWidth="1"/>';
+    });
+    x += '</cols>';
+  }
+
+  x += '<sheetData>';
+  const sorHozzaad = function(ertekek, sorSzam, stilus){
+    x += '<row r="'+sorSzam+'">';
+    ertekek.forEach(function(v, i){
+      const hiv = _oszlopBetu(i+1) + sorSzam;
+      const s = stilus ? ' s="'+stilus+'"' : '';
+      if(v === null || v === undefined || v === ''){
+        x += '<c r="'+hiv+'"'+s+'/>';
+      } else if(typeof v === 'number' && isFinite(v)){
+        x += '<c r="'+hiv+'"'+s+'><v>'+v+'</v></c>';
+      } else {
+        x += '<c r="'+hiv+'"'+s+' t="inlineStr"><is><t xml:space="preserve">'+_xmlEsc(v)+'</t></is></c>';
+      }
+    });
+    x += '</row>';
+  };
+  sorHozzaad(fejlec, 1, 1);
+  sorok.forEach(function(r, i){ sorHozzaad(r, i+2, 0); });
+  x += '</sheetData></worksheet>';
+  return x;
+}
+
+// Munkalapnév tisztítása: az Excel tiltja a : \ / ? * [ ] karaktereket, max 31 jel
+function _lapNev(nev, hasznaltak){
+  let n = String(nev).replace(/[:\\\/\?\*\[\]]/g,'-').slice(0,31) || 'Munkalap';
+  let alap = n, i = 2;
+  while(hasznaltak.indexOf(n) > -1){ n = (alap.slice(0, 28) + '_' + i).slice(0,31); i++; }
+  hasznaltak.push(n);
+  return n;
+}
+
+// Fő belépési pont: [{nev, fejlec, sorok, szelessegek}] -> Uint8Array (.xlsx)
+function xlsxKeszit(lapok){
+  const hasznaltNevek = [];
+  const lapAdatok = lapok.map(function(l){
+    return { nev: _lapNev(l.nev, hasznaltNevek), fejlec: l.fejlec, sorok: l.sorok, szelessegek: l.szelessegek };
+  });
+
+  const ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+    lapAdatok.map(function(l,i){ return '<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join('') +
+    '</Types>';
+
+  const rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+    '</Relationships>';
+
+  const wb = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
+    lapAdatok.map(function(l,i){ return '<sheet name="'+_xmlEsc(l.nev)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>'; }).join('') +
+    '</sheets></workbook>';
+
+  const wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    lapAdatok.map(function(l,i){ return '<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>'; }).join('') +
+    '<Relationship Id="rId'+(lapAdatok.length+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+    '</Relationships>';
+
+  // Két stílus: 0 = alap, 1 = félkövér fejléc szürke háttérrel
+  const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>' +
+    '<font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+    '<fills count="3"><fill><patternFill patternType="none"/></fill>' +
+    '<fill><patternFill patternType="gray125"/></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFE8E4DC"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+    '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    '<cellXfs count="2">' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>' +
+    '</cellXfs>' +
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+    '</styleSheet>';
+
+  const fajlok = [
+    { nev:'[Content_Types].xml', adat:_utf8(ct) },
+    { nev:'_rels/.rels', adat:_utf8(rels) },
+    { nev:'xl/workbook.xml', adat:_utf8(wb) },
+    { nev:'xl/_rels/workbook.xml.rels', adat:_utf8(wbRels) },
+    { nev:'xl/styles.xml', adat:_utf8(styles) }
+  ];
+  lapAdatok.forEach(function(l, i){
+    fajlok.push({ nev:'xl/worksheets/sheet'+(i+1)+'.xml',
+                  adat:_utf8(_munkalapXml(l.fejlec, l.sorok, l.szelessegek)) });
+  });
+
+  return _zipKeszit(fajlok);
+}
+
+
+async function exportExcel(){
+  const gomb = document.getElementById('exp-excel-gomb');
+  const eredeti = gomb ? gomb.innerHTML : '';
+  const tablak = expTablak().filter(t=>t.sorok.length);
+  if(!tablak.length){ alert('Ebben az időszakban nincs exportálható adat.'); return; }
+  if(gomb){ gomb.disabled = true; gomb.textContent = 'Excel készítése...'; }
+  try{
+    const lapok = tablak.map(function(t){
+      return {
+        nev: t.nev,
+        fejlec: t.fejlec,
+        sorok: t.sorok,
+        szelessegek: t.fejlec.map(function(f, i){
+          let max = String(f).length;
+          t.sorok.forEach(function(r){
+            const h = String(r[i] === null || r[i] === undefined ? '' : r[i]).length;
+            if(h > max) max = h;
+          });
+          return Math.min(Math.max(max + 2, 8), 42);
+        })
+      };
+    });
+    const bajtok = xlsxKeszit(lapok);
+    expLetolt(new Blob([bajtok], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), expFajlNev('xlsx'));
+  }catch(err){
+    console.error(err);
+    if(confirm('Az Excel készítése nem sikerült:\n' + err.message + '\n\nLetöltsem inkább CSV-ben?')) exportCsvMind();
+  } finally {
+    if(gomb){ gomb.disabled = false; gomb.innerHTML = eredeti; }
+  }
+}
 
 // ============ BÉRLETI DÍJAK ============
 const HONAP_NEV = ['január','február','március','április','május','június','július','augusztus','szeptember','október','november','december'];
