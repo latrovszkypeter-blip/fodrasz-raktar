@@ -312,7 +312,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v4.2 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v5.0 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -837,6 +837,7 @@ let nextRid=1;
 let lomtar=[];
 let berleti=[];
 let saveTimeout=null;
+let utolsoBetoltesMp=null;
 let isLoading=true;
 let isSaving=false;
 const JUTALEK_PCT = 18;
@@ -923,7 +924,71 @@ function fixDatum(d){
   return s;
 }
 
-const VART_BACKEND_VERZIO = '4.2'; // a Code.gs-ben lévő BACKEND_VERZIO értéke
+const VART_BACKEND_VERZIO = '5.0'; // a Code.gs-ben lévő BACKEND_VERZIO értéke
+
+// ---------- HELYI GYORSÍTÓTÁR ----------
+// A legutóbbi adatokat elmentjük a böngészőbe, így a következő indításnál
+// azonnal látszik minden, míg a friss adat a háttérben megérkezik.
+const CACHE_KULCS = 'raktar_cache_v5';
+
+function cacheMent(){
+  try{
+    localStorage.setItem(CACHE_KULCS, JSON.stringify({
+      ido: Date.now(),
+      termekek: products, berlok: berlok, eladasok: eladas,
+      rendelesek: rendelesek, berleti: berleti
+    }));
+  }catch(e){ /* tele a tároló - nem baj, csak gyorsítótár */ }
+}
+
+function cacheBetolt(){
+  try{
+    const nyers = localStorage.getItem(CACHE_KULCS);
+    if(!nyers) return false;
+    const c = JSON.parse(nyers);
+    if(!c || !c.termekek) return false;
+    alkalmazAdatokat(c);
+    calcNextIds();
+    const perc = Math.round((Date.now()-(c.ido||0))/60000);
+    showSyncStatus('Mentett adatok (' + (perc<1?'friss':perc+' perce') + ') · frissítés...', false);
+    return true;
+  }catch(e){ return false; }
+}
+
+// A szerverről (vagy gyorsítótárból) érkező adatok egységes feldolgozása
+function alkalmazAdatokat(data){
+  products = (data.termekek||[]).map(p=>({
+    id:Number(p.id), nev:p.nev, kat:p.kat, keszlet:Number(p.keszlet)||0,
+    min:Number(p.min)||0, besar:Number(p.besar)||0, elar:Number(p.elar)||0, fogyasztoiar:Number(p.fogyasztoiar)||0
+  }));
+  berlok = (data.berlok||[]).map(b=>({
+    id:Number(b.id), nev:String(b.nev||''), adoszam:String(b.adoszam||''), telefon:String(b.telefon||''), pin:String(b.pin||'').trim()
+  })).filter(b=>b.id && b.nev);
+  berleti = (data.berleti||[]).map(x=>({
+    id:Number(x.id), berloId:Number(x.berloId), honap:String(x.honap||'').slice(0,7),
+    osszeg:Number(x.osszeg)||0,
+    fizetve:(x.fizetve===true || String(x.fizetve||'').toLowerCase()==='igen' || String(x.fizetve||'').toLowerCase()==='true') ? 'igen' : '',
+    fizetesDatum:String(x.fizetesDatum||''), fizetesMod:String(x.fizetesMod||''),
+    megjegyzes:String(x.megjegyzes||'')
+  })).filter(x=>x.id);
+  rendelesek = (data.rendelesek||[]).map(r=>({
+    id:Number(r.id), berloId:Number(r.berloId), termekId:Number(r.termekId)||0,
+    termekNev:r.termekNev||'', db:Number(r.db)||0, megjegyzes:r.megjegyzes||'',
+    datum:r.datum||'', statusz:r.statusz||'fuggoben'
+  }));
+  eladas = (data.eladasok||[]).map(e=>({
+    id:Number(e.id), berloId:Number(e.berloId), termekId:Number(e.termekId),
+    db:Number(e.db)||0, ar:Number(e.ar)||0, besar:Number(e.besar)||0,
+    datum:fixDatum(e.datum), megjegyzes:e.megjegyzes||'',
+    tipus: e.tipus || 'berlo',
+    jutalekOsszeg: e.jutalekOsszeg!==undefined && e.jutalekOsszeg!=='' ? Number(e.jutalekOsszeg) : 0,
+    jutalekStatusz: e.jutalekStatusz || (e.tipus==='vendeg' ? 'fuggoben' : ''),
+    rogzitette: e.rogzitette || 'admin',
+    fizetve: (e.fizetve===true || String(e.fizetve||'').toLowerCase()==='igen' || String(e.fizetve||'').toLowerCase()==='true') ? 'igen' : '',
+    fizetesDatum: String(e.fizetesDatum||''),
+    fizetesMod: String(e.fizetesMod||'')
+  }));
+}
 function ellenorizBackendVerzio(v){
   const cimke = document.getElementById('backend-verzio-cimke');
   if(cimke) cimke.textContent = v ? '· backend v'+v : '· backend: RÉGI';
@@ -943,51 +1008,23 @@ async function loadFromSheet(silent){
   try{
     showSyncStatus('Betöltés...', false);
     const controller = new AbortController();
-    const timeout = setTimeout(()=>controller.abort(), 8000);
+    // 8 mp kevés volt mobilneten: a kérés megszakadt és semmi nem jött be
+    const timeout = setTimeout(()=>controller.abort(), 30000);
+    const kezdet = Date.now();
     const res = await fetch(SCRIPT_URL + '?action=getAll', {signal: controller.signal});
     clearTimeout(timeout);
     const data = await res.json();
+    utolsoBetoltesMp = ((Date.now()-kezdet)/1000).toFixed(1);
+    console.log('Betöltés ideje: ' + utolsoBetoltesMp + ' mp');
     if(data.error){ throw new Error(data.error); }
     ellenorizBackendVerzio(data.backendVerzio);
     // JAVÍTÁS: ha a letöltés KÖZBEN mentés indult (pl. törlés történt),
     // a régi szerveradatokkal NEM írjuk felül a friss helyi állapotot!
     if(isSaving){ showSyncStatus('Mentés folyamatban...', false); return; }
-    products = (data.termekek||[]).map(p=>({
-      id:Number(p.id), nev:p.nev, kat:p.kat, keszlet:Number(p.keszlet)||0,
-      min:Number(p.min)||0, besar:Number(p.besar)||0, elar:Number(p.elar)||0, fogyasztoiar:Number(p.fogyasztoiar)||0
-    }));
-    berlok = (data.berlok||[]).map(b=>({
-      id:Number(b.id), nev:String(b.nev||''), adoszam:String(b.adoszam||''), telefon:String(b.telefon||''), pin:String(b.pin||'').trim()
-    })).filter(b=>b.id && b.nev);
-    lomtar = (data.lomtar||[]);
-    berleti = (data.berleti||[]).map(x=>({
-      id:Number(x.id), berloId:Number(x.berloId), honap:String(x.honap||'').slice(0,7),
-      osszeg:Number(x.osszeg)||0,
-      fizetve:(x.fizetve===true || String(x.fizetve||'').toLowerCase()==='igen' || String(x.fizetve||'').toLowerCase()==='true') ? 'igen' : '',
-      fizetesDatum:String(x.fizetesDatum||''), fizetesMod:String(x.fizetesMod||''),
-      megjegyzes:String(x.megjegyzes||'')
-    })).filter(x=>x.id);
-    rendelesek = (data.rendelesek||[]).map(r=>({
-      id:Number(r.id), berloId:Number(r.berloId), termekId:Number(r.termekId)||0,
-      termekNev:r.termekNev||'', db:Number(r.db)||0, megjegyzes:r.megjegyzes||'',
-      datum:r.datum||'', statusz:r.statusz||'fuggoben'
-    }));
-    eladas = (data.eladasok||[]).map(e=>({
-      id:Number(e.id), berloId:Number(e.berloId), termekId:Number(e.termekId),
-      db:Number(e.db)||0, ar:Number(e.ar)||0, besar:Number(e.besar)||0,
-      datum:fixDatum(e.datum), megjegyzes:e.megjegyzes||'',
-      tipus: e.tipus || 'berlo',
-      jutalekOsszeg: e.jutalekOsszeg!==undefined && e.jutalekOsszeg!=='' ? Number(e.jutalekOsszeg) : 0,
-      jutalekStatusz: e.jutalekStatusz || (e.tipus==='vendeg' ? 'fuggoben' : ''),
-      rogzitette: e.rogzitette || 'admin',
-      // FONTOS: a fizetési mezők átvétele - enélkül minden újratöltésnél
-      // visszaállt volna "nincs kifizetve" állapotra
-      fizetve: (e.fizetve===true || String(e.fizetve||'').toLowerCase()==='igen' || String(e.fizetve||'').toLowerCase()==='true') ? 'igen' : '',
-      fizetesDatum: String(e.fizetesDatum||''),
-      fizetesMod: String(e.fizetesMod||'')
-    }));
+    alkalmazAdatokat(data);
+    cacheMent();
     calcNextIds();
-    showSyncStatus('Betöltve ✓', false);
+    showSyncStatus('Betöltve ✓ (' + utolsoBetoltesMp + ' mp)', false);
     // Ha van aktív kosár, ne írjuk felül az eladásokat
     if(kosar.length > 0 && silent) {
       // Csak a termékeket és bérlőket frissítjük, az eladásokat nem
@@ -1001,10 +1038,12 @@ async function loadFromSheet(silent){
     const tabText = activeTab ? activeTab.textContent.trim() : '';
     if(!silent) renderKeszlet();
     else renderStats();
-    if(tabText.includes('Bérlők')) renderBerlok();
+    if(tabText.includes('Lomtár')){ lomtarElavult = true; betoltLomtar(); }
+    else if(tabText.includes('Bérlők')) renderBerlok();
     else if(tabText.includes('Jutalék')) renderJutalek();
     else if(tabText.includes('Napló')) renderNaplo();
     else if(tabText.includes('Számlázás')) renderSzamla();
+    else if(tabText.includes('Bérleti')) renderBerleti();
     // Árazást NEM frissítjük automatikusan - megőrizzük a nyitott kategóriákat
   }catch(err){
     if(err.name==='AbortError'){
@@ -1029,7 +1068,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v4.2');
+console.log('Fodrász Raktár – Admin felület v5.0');
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
   const jsonStr = JSON.stringify(payload || {});
@@ -1145,7 +1184,12 @@ function showTab(t,el){
   if(t==='jutalek')renderJutalek();
   if(t==='rendeles')renderRendeles();
   if(t==='berleti')renderBerleti();
-  if(t==='lomtar')renderLomtar();
+  if(t==='lomtar'){
+    if(lomtarElavult){
+      document.getElementById('lomtar-lista').innerHTML='<div class="empty-state" style="padding:40px;">Lomtár betöltése...</div>';
+      betoltLomtar();
+    } else renderLomtar();
+  }
 }
 
 function renderStats(){
@@ -1376,7 +1420,7 @@ async function delProduct(id){
   await apiMuvelet('torles', { tipus: 'termek', ids: [id], lomtarba: true }, function(){
     products = products.filter(x=>x.id!==id);
     renderKeszlet();
-    loadFromSheet(true);
+    lomtarElavult = true;
   });
 }
 
@@ -1671,6 +1715,14 @@ function populateSelect(id,placeholder){
   s.innerHTML=placeholder+berlok.map(b=>`<option value="${b.id}">${b.nev}</option>`).join('');
   if(cur)s.value=cur;
 }
+function clearNaploFilter(){
+  ['n-tipus','n-berlo','n-tol','n-ig'].forEach(function(id){
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  renderNaplo();
+}
+
 function renderNaplo(){
   populateSelect('n-berlo','<option value="">Minden bérlő</option>');
   const bId=parseInt(document.getElementById('n-berlo').value)||0;
@@ -1808,7 +1860,7 @@ async function delNaploCsoport(key){
     });
     eladas = eladas.filter(e=>!(e.datum.slice(0,16)===perc && e.berloId===bId && (e.rogzitette||'admin')===rogz));
     renderNaplo();
-    loadFromSheet(true); // lomtár frissítése a szerverről
+    lomtarElavult = true;
   });
 }
 
@@ -1838,7 +1890,7 @@ async function delNaplo(id){
     if(p) p.keszlet += e.db;
     eladas = eladas.filter(x=>x.id!==id);
     renderNaplo();
-    loadFromSheet(true); // lomtár frissítése a szerverről
+    lomtarElavult = true;
   });
 }
 
@@ -2139,7 +2191,7 @@ async function berletiTorles(id){
   await apiMuvelet('torles', { tipus:'berleti', ids:[id], lomtarba:true }, function(){
     berleti = berleti.filter(y=>y.id!==id);
     renderBerleti();
-    loadFromSheet(true);
+    lomtarElavult = true;
   });
 }
 
@@ -2488,6 +2540,29 @@ function toggleLcs(id){
   if(arrow) arrow.textContent = open ? '▶' : '▼';
 }
 
+let lomtarElavult = true;
+let lomtarTolt = false;
+
+async function betoltLomtar(eroltetett){
+  if(lomtarTolt) return;
+  if(!eroltetett && !lomtarElavult) return;
+  lomtarTolt = true;
+  try{
+    const res = await fetch(SCRIPT_URL + '?action=getLomtar');
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    lomtar = (data.lomtar||[]);
+    lomtarElavult = false;
+    renderLomtar();
+  }catch(err){
+    console.error('Lomtár betöltési hiba:', err);
+    const div = document.getElementById('lomtar-lista');
+    if(div) div.innerHTML = '<div class="empty-state" style="padding:40px;">A lomtár betöltése nem sikerült. Próbáld újra a Frissítés gombbal.</div>';
+  } finally {
+    lomtarTolt = false;
+  }
+}
+
 async function visszaallitLomtarCsoport(csId){
   const tetelek = lomtar.filter(x=>x.csoport===csId);
   if(!tetelek.length) return;
@@ -2495,8 +2570,9 @@ async function visszaallitLomtarCsoport(csId){
   await apiMuvelet('lomtarVissza', { lomtarIds: tetelek.map(x=>x.lomtarId) }, function(data){
     alert((data.visszaallitva||tetelek.length)+' tétel visszaállítva!');
   });
-  await loadFromSheet(true);
-  renderLomtar();
+  lomtarElavult = true;
+  await loadFromSheet(true);   // a visszaállított tétel a fő adatokba kerül vissza
+  await betoltLomtar(true);
 }
 
 async function visszaallitLomtar(lomtarId){
@@ -2509,9 +2585,10 @@ async function visszaallitLomtar(lomtarId){
     else if(x.tipus==='rendeles') alert('Rendelési igény visszaállítva!');
     else alert((x.nev||'Tétel')+' visszaállítva!');
   });
-  // Friss állapot betöltése a szerverről (készlet, napló, lomtár együtt)
+  // Friss állapot betöltése (a visszaállított tétel a fő adatok közé kerül)
+  lomtarElavult = true;
   await loadFromSheet(true);
-  renderLomtar();
+  await betoltLomtar(true);
 }
 
 
@@ -2622,7 +2699,7 @@ async function delRendelesCsoport(key){
   await apiMuvelet('torles', { tipus: 'rendeles', ids: torlendo.map(r=>r.id), lomtarba: true, csoport: csoportId }, function(){
     rendelesek = rendelesek.filter(r=>!(String(r.berloId)===String(bId) && r.datum.slice(0,10)===nap));
     renderRendeles();
-    loadFromSheet(true);
+    lomtarElavult = true;
   });
 }
 
@@ -2631,7 +2708,7 @@ async function delRendeles(id){
   await apiMuvelet('torles', { tipus: 'rendeles', ids: [id], lomtarba: true }, function(){
     rendelesek = rendelesek.filter(r=>r.id!==id);
     renderRendeles();
-    loadFromSheet(true);
+    lomtarElavult = true;
   });
 }
 
@@ -2718,7 +2795,7 @@ async function delBerlo(id){
   await apiMuvelet('torles', { tipus: 'berlo', ids: [id], lomtarba: true }, function(){
     berlok = berlok.filter(b=>b.id!==id);
     renderBerlok();
-    loadFromSheet(true);
+    lomtarElavult = true;
   });
 }
 
@@ -2849,7 +2926,7 @@ async function delJutalekCsoport(idsCsv){
     });
     eladas = eladas.filter(e=>!ids.includes(e.id));
     renderJutalek();
-    loadFromSheet(true); // lomtár frissítése a szerverről
+    lomtarElavult = true;
   });
 }
 async function delJutalek(id){
@@ -2864,7 +2941,7 @@ async function delJutalek(id){
     if(p) p.keszlet += e.db;
     eladas = eladas.filter(x=>x.id!==id);
     renderJutalek();
-    loadFromSheet(true);
+    lomtarElavult = true;
   });
 }
 
@@ -2890,7 +2967,7 @@ setInterval(function(){
   if(document.visibilityState === 'visible' && !isLoading && !kosar.length){
     loadFromSheet(true);
   }
-}, 30000);
+}, 180000);
 
 // Focus esemény - csak ha a kosár üres
 window.addEventListener('focus', function(){
@@ -2901,13 +2978,24 @@ window.addEventListener('focus', function(){
 // ADMIN BEJELENTKEZÉS
 const ADMIN_JELSZO = '90meduza90'; // Ezt változtasd meg!
 
+function inditasAdatok(){
+  // 1. lépés: a mentett adatok AZONNAL megjelennek (nincs üres képernyő)
+  const voltCache = cacheBetolt();
+  if(voltCache){
+    renderKeszlet();
+    isLoading = false;
+  }
+  // 2. lépés: friss adatok a háttérben
+  loadFromSheet(voltCache);
+}
+
 function adminBelep(){
   const pw = document.getElementById('admin-pw').value;
   if(pw === ADMIN_JELSZO){
     document.getElementById('admin-login').style.display = 'none';
     document.getElementById('admin-app').style.display = 'block';
     sessionStorage.setItem('admin_auth', '1');
-    loadFromSheet(false);
+    inditasAdatok();
   } else {
     document.getElementById('admin-hiba').textContent = 'Hibás jelszó!';
     document.getElementById('admin-pw').value = '';
@@ -2920,7 +3008,7 @@ function adminBelep(){
   if(sessionStorage.getItem('admin_auth') === '1'){
     document.getElementById('admin-login').style.display = 'none';
     document.getElementById('admin-app').style.display = 'block';
-    loadFromSheet(false);
+    inditasAdatok();
   }
 })();
 

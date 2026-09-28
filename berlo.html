@@ -126,7 +126,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 <!-- BEJELENTKEZÉS - 1. lépés: bérlő választás -->
 <div id="step-valaszt" class="login-wrap">
   <div class="login-card">
-    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:var(--text3);opacity:.75;">v4.0</div>
+    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:var(--text3);opacity:.75;">v5.0</div>
     <div class="login-logo">
       <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.8">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
@@ -376,7 +376,7 @@ const JUTALEK_PCT = 18;
 const CSAK_BERLOI_KAT = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA'];
 
 let products = [], berlok = [], eladas = [], rendelesek = [];
-const APP_VERZIO = '4.0';
+const APP_VERZIO = '5.0';
 console.log('Fodrász Raktár – Bérlői felület v' + APP_VERZIO);
 let bejelentkezettBerlo = null;
 let nextRid = 1;
@@ -394,39 +394,72 @@ function fixDatum(d){
   return s;
 }
 
+// ---------- HELYI GYORSÍTÓTÁR ----------
+const B_CACHE_KULCS = 'berlo_cache_v5';
+
+function cacheMent(){
+  try{
+    localStorage.setItem(B_CACHE_KULCS, JSON.stringify({
+      ido: Date.now(), termekek: products, berlok: berlok,
+      eladasok: eladas, rendelesek: rendelesek
+    }));
+  }catch(e){}
+}
+
+function cacheBetolt(){
+  try{
+    const nyers = localStorage.getItem(B_CACHE_KULCS);
+    if(!nyers) return false;
+    const c = JSON.parse(nyers);
+    if(!c || !c.termekek || !c.termekek.length) return false;
+    alkalmazAdatokat(c);
+    return true;
+  }catch(e){ return false; }
+}
+
+function alkalmazAdatokat(data){
+  products = (data.termekek||[]).map(p=>({
+    id:Number(p.id), nev:p.nev, kat:p.kat, keszlet:Number(p.keszlet)||0,
+    besar:Number(p.besar)||0, elar:Number(p.elar)||0, fogyasztoiar:Number(p.fogyasztoiar)||0
+  }));
+  berlok = (data.berlok||[]).map(b=>({
+    id:Number(b.id), nev:b.nev, pin:b.pin||'', adoszam:b.adoszam||'', telefon:b.telefon||''
+  }));
+  eladas = (data.eladasok||[]).map(e=>({
+    id:Number(e.id), berloId:Number(e.berloId), termekId:Number(e.termekId),
+    db:Number(e.db)||0, ar:Number(e.ar)||0, besar:Number(e.besar)||0,
+    datum:fixDatum(e.datum), megjegyzes:e.megjegyzes||'',
+    tipus:e.tipus||'berlo',
+    jutalekOsszeg:Number(e.jutalekOsszeg)||0,
+    jutalekStatusz:e.jutalekStatusz||'',
+    rogzitette:e.rogzitette||'admin',
+    fizetve:(e.fizetve===true || String(e.fizetve||'').toLowerCase()==='igen' || String(e.fizetve||'').toLowerCase()==='true') ? 'igen' : '',
+    fizetesDatum:String(e.fizetesDatum||''),
+    fizetesMod:String(e.fizetesMod||'')
+  }));
+  nextEid = eladas.length ? Math.max(...eladas.map(e=>e.id))+1 : 1;
+  rendelesek = (data.rendelesek||[]).map(r=>({
+    id:Number(r.id), berloId:Number(r.berloId), termekId:Number(r.termekId)||0,
+    termekNev:r.termekNev||'', db:Number(r.db)||0, megjegyzes:r.megjegyzes||'',
+    datum:r.datum||'', statusz:r.statusz||'fuggoben'
+  }));
+  nextRid = rendelesek.length ? Math.max(...rendelesek.map(r=>r.id))+1 : 1;
+}
+
 // BETÖLTÉS
 async function loadData(silent){
   if(!silent) document.getElementById('berlo-select-list').innerHTML='<div class="empty-state">Kapcsolódás...</div>';
   try{
-    const res = await fetch(SCRIPT_URL + '?action=getAll');
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), 30000);
+    const kezdetIdo = Date.now();
+    const res = await fetch(SCRIPT_URL + '?action=getAll', {signal: controller.signal});
+    clearTimeout(timeout);
     const data = await res.json();
-    products = (data.termekek||[]).map(p=>({
-      id:Number(p.id), nev:p.nev, kat:p.kat, keszlet:Number(p.keszlet)||0,
-      besar:Number(p.besar)||0, elar:Number(p.elar)||0, fogyasztoiar:Number(p.fogyasztoiar)||0
-    }));
-    berlok = (data.berlok||[]).map(b=>({
-      id:Number(b.id), nev:b.nev, pin:b.pin||'', adoszam:b.adoszam||'', telefon:b.telefon||''
-    }));
-    eladas = (data.eladasok||[]).map(e=>({
-      id:Number(e.id), berloId:Number(e.berloId), termekId:Number(e.termekId),
-      db:Number(e.db)||0, ar:Number(e.ar)||0, besar:Number(e.besar)||0,
-      datum:fixDatum(e.datum), megjegyzes:e.megjegyzes||'',
-      tipus:e.tipus||'berlo',
-      jutalekOsszeg:Number(e.jutalekOsszeg)||0,
-      jutalekStatusz:e.jutalekStatusz||'',
-      rogzitette:e.rogzitette||'admin',
-      // Fizetési mezők átvétele (enélkül mindig "nincs kifizetve" látszana)
-      fizetve:(e.fizetve===true || String(e.fizetve||'').toLowerCase()==='igen' || String(e.fizetve||'').toLowerCase()==='true') ? 'igen' : '',
-      fizetesDatum:String(e.fizetesDatum||''),
-      fizetesMod:String(e.fizetesMod||'')
-    }));
-    nextEid = eladas.length ? Math.max(...eladas.map(e=>e.id))+1 : 1;
-    rendelesek = (data.rendelesek||[]).map(r=>({
-      id:Number(r.id), berloId:Number(r.berloId), termekId:Number(r.termekId)||0,
-      termekNev:r.termekNev||'', db:Number(r.db)||0, megjegyzes:r.megjegyzes||'',
-      datum:r.datum||'', statusz:r.statusz||'fuggoben'
-    }));
-    nextRid = rendelesek.length ? Math.max(...rendelesek.map(r=>r.id))+1 : 1;
+    if(data.error) throw new Error(data.error);
+    console.log('Betöltés ideje: ' + ((Date.now()-kezdetIdo)/1000).toFixed(1) + ' mp');
+    alkalmazAdatokat(data);
+    cacheMent();
     try{ renderBerloList(); } catch(e){ console.error('renderBerloList hiba:', e); }
     if(bejelentkezettBerlo) bUpdateKatLista();
   } catch(err){
@@ -463,10 +496,21 @@ async function berloMentes(ujEladasok, ujRendelesek, keszletValtozas){
   }
   const data = await res.json();
   if(data.error) throw new Error(data.error);
+
+  // GYORSÍTÁS: a helyi állapotot magunk frissítjük a szerver által adott ID-kkal,
+  // nem töltjük le újra a TELJES adatbázist (ez vitte el a 10 másodpercet).
+  (payload.ujEladasok||[]).forEach(function(uj, i){
+    uj.id = (data.eladasIds && data.eladasIds[i]) || 0;
+    eladas.push(uj);
+    var p = products.find(function(x){return x.id===uj.termekId;});
+    if(p) p.keszlet -= uj.db;
+  });
+  (payload.ujRendelesek||[]).forEach(function(uj, i){
+    uj.id = (data.rendelesIds && data.rendelesIds[i]) || 0;
+    rendelesek.push(uj);
+  });
+  cacheMent();
   showSync('Mentve ✓', false);
-  // Friss adatok visszatöltése (szerver oldali ID-kkal együtt)
-  // Ha a visszatöltés hibázik, az NEM mentési hiba - a mentés már sikerült
-  try{ await loadData(true); } catch(e){ console.error('Visszatöltési hiba:', e); }
 }
 
 function showSync(text, isError){
@@ -1183,15 +1227,20 @@ function bRenderJutalek(){
   }).join('');
 }
 
-loadData();
+// INDULÁS: előbb a mentett adatok (azonnali megjelenés), aztán a friss
+(function(){
+  const voltCache = cacheBetolt();
+  if(voltCache){ try{ renderBerloList(); }catch(e){} }
+  loadData(voltCache);
+})();
 
-// AUTOMATIKUS FRISSÍTÉS: 60 másodpercenként friss adatokat töltünk,
+// AUTOMATIKUS FRISSÍTÉS: 3 percenként friss adatokat töltünk,
 // de csak ha egyik kosárban sincs semmi (hogy ne zavarja a munkát)
 setInterval(function(){
   if(document.visibilityState === 'visible' && !bKosar.length && !brKosar.length){
     loadData(true);
   }
-}, 60000);
+}, 180000);
 
 // Amikor a bérlő visszavált az alkalmazásra (pl. másik appból), frissítünk
 window.addEventListener('focus', function(){
