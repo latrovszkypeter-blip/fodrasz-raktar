@@ -313,7 +313,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v5.2 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v5.3 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -962,7 +962,7 @@ function fixDatum(d){
   return s;
 }
 
-const VART_BACKEND_VERZIO = '5.1'; // a Code.gs-ben lévő BACKEND_VERZIO értéke
+const VART_BACKEND_VERZIO = '5.3'; // a Code.gs-ben lévő BACKEND_VERZIO értéke
 
 // ---------- HELYI GYORSÍTÓTÁR ----------
 // A legutóbbi adatokat elmentjük a böngészőbe, így a következő indításnál
@@ -1055,7 +1055,9 @@ async function loadFromSheet(silent){
     utolsoBetoltesMp = ((Date.now()-kezdet)/1000).toFixed(1);
     console.log('Betöltés ideje: ' + utolsoBetoltesMp + ' mp');
     if(data.error){ throw new Error(data.error); }
+    rejtBetoltesiHiba();
     ellenorizBackendVerzio(data.backendVerzio);
+    if(data.figyelmeztetes) console.warn('Backend figyelmeztetés:', data.figyelmeztetes);
     // JAVÍTÁS: ha a letöltés KÖZBEN mentés indult (pl. törlés történt),
     // a régi szerveradatokkal NEM írjuk felül a friss helyi állapotot!
     if(isSaving){ showSyncStatus('Mentés folyamatban...', false); return; }
@@ -1084,13 +1086,39 @@ async function loadFromSheet(silent){
     else if(tabText.includes('Bérleti')) renderBerleti();
     // Árazást NEM frissítjük automatikusan - megőrizzük a nyitott kategóriákat
   }catch(err){
+    console.error(err);
+    const halozati = (err.name === 'AbortError' || err.name === 'TypeError' || /Failed to fetch|NetworkError|Load failed/i.test(err.message||''));
     if(err.name==='AbortError'){
       showSyncStatus('Időtúllépés – nincs internetkapcsolat?', true);
     } else {
-      showSyncStatus('Nem sikerült betölteni: '+err.message, true);
+      showSyncStatus('Nem sikerült betölteni', true);
     }
-    console.error(err);
+    // FONTOS: a hiba a képernyőn is látszik, különben a gyorsítótárból
+    // megjelenő régi adatok elfedik, hogy a frissítés nem sikerült
+    mutatBetoltesiHiba(err, halozati);
   }
+}
+
+function mutatBetoltesiHiba(err, halozati){
+  const sav = document.getElementById('backend-warn');
+  if(!sav) return;
+  sav.style.display = 'block';
+  sav.style.background = '#FEE2E2';
+  sav.style.borderColor = '#FCA5A5';
+  sav.style.color = '#991B1B';
+  sav.innerHTML = '⚠️ <strong>Nem sikerült frissíteni az adatokat.</strong> ' +
+    (halozati ? 'Nem érhető el a szerver – ellenőrizd az internetkapcsolatot.' : 'A szerver hibát adott: ' + (err.message||String(err))) +
+    ' <button class="btn btn-sm" style="margin-left:8px;" onclick="loadFromSheet(false)">Újrapróbálom</button>' +
+    '<div style="font-size:12px;margin-top:6px;opacity:.85;">A képernyőn látható adatok a legutóbbi sikeres betöltésből származnak – mentés előtt érdemes megvárni a sikeres frissítést.</div>';
+}
+
+function rejtBetoltesiHiba(){
+  const sav = document.getElementById('backend-warn');
+  if(!sav) return;
+  sav.style.background = '#FEF3C7';
+  sav.style.borderColor = '#FCD34D';
+  sav.style.color = '#92400E';
+  sav.style.display = 'none';
 }
 
 async function saveBerlokToSheet(){
@@ -1106,7 +1134,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v5.2');
+console.log('Fodrász Raktár – Admin felület v5.3');
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
   const jsonStr = JSON.stringify(payload || {});

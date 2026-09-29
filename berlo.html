@@ -126,7 +126,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 <!-- BEJELENTKEZÉS - 1. lépés: bérlő választás -->
 <div id="step-valaszt" class="login-wrap">
   <div class="login-card">
-    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:var(--text3);opacity:.75;">v5.0</div>
+    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:var(--text3);opacity:.75;">v5.3</div>
     <div class="login-logo">
       <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.8">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
@@ -376,7 +376,7 @@ const JUTALEK_PCT = 18;
 const CSAK_BERLOI_KAT = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA'];
 
 let products = [], berlok = [], eladas = [], rendelesek = [];
-const APP_VERZIO = '5.0';
+const APP_VERZIO = '5.3';
 console.log('Fodrász Raktár – Bérlői felület v' + APP_VERZIO);
 let bejelentkezettBerlo = null;
 let nextRid = 1;
@@ -464,8 +464,34 @@ async function loadData(silent){
     if(bejelentkezettBerlo) bUpdateKatLista();
   } catch(err){
     console.error(err);
-    document.getElementById('berlo-select-list').innerHTML='<div class="empty-state">Kapcsolódási hiba. Ellenőrizd az internetkapcsolatot!</div>';
+    const halozati = (err.name === 'AbortError' || err.name === 'TypeError' || /Failed to fetch|NetworkError|Load failed/i.test(err.message||''));
+    const cim = err.name === 'AbortError' ? 'Időtúllépés – lassú a kapcsolat'
+              : halozati ? 'Nem sikerült elérni a szervert'
+              : 'Hiba a betöltésnél';
+    const reszlet = halozati
+      ? 'Ellenőrizd az internetkapcsolatot, majd töltsd újra az oldalt.'
+      : (err.message || String(err));
+    // Ha van mentett adat, abból dolgozhat tovább a bérlő
+    const vanAdat = berlok && berlok.length;
+    document.getElementById('berlo-select-list').innerHTML =
+      '<div style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:var(--radius);padding:14px;text-align:left;font-size:13px;">' +
+        '<div style="font-weight:600;margin-bottom:6px;">' + cim + '</div>' +
+        '<div style="margin-bottom:10px;word-break:break-word;">' + reszlet + '</div>' +
+        '<button onclick="loadData()" style="padding:9px 14px;font:600 13px inherit;border:none;border-radius:8px;background:#991b1b;color:#fff;cursor:pointer;">Újrapróbálom</button>' +
+      '</div>' +
+      (vanAdat ? '<div style="font-size:12px;color:var(--text3);margin-top:10px;">Alább a legutóbb mentett adatok láthatók – rögzíteni csak sikeres kapcsolódás után tudsz.</div>' : '');
+    if(vanAdat){ try{ renderBerloListBele(); }catch(e){} }
   }
+}
+
+// A bérlőlistát külön is ki tudjuk rajzolni a hibaüzenet ALÁ
+function renderBerloListBele(){
+  const div = document.getElementById('berlo-select-list');
+  if(!div || !berlok.length) return;
+  div.innerHTML += berlok.map(function(b){
+    return '<button class="berlo-select-btn" onclick="berloValaszt('+b.id+')" style="margin-top:8px;">'+
+      '<div class="avatar-sm">'+initials(b.nev)+'</div>'+b.nev+'</button>';
+  }).join('');
 }
 
 // JAVÍTÁS: A bérlői felület NEM írja felül a teljes adatbázist!
