@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Raktár sebességmérés</title>
+<style>
+:root{--bg:#faf8f5;--surface:#fff;--border:#e6e0d8;--text:#1a1814;--text2:#5c554c;--text3:#8a8177;--accent:#2d5a3d;--danger:#991b1b;--warn:#92400e;--radius:10px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#17150f;--surface:#211e18;--border:#39342b;--text:#f2ede4;--text2:#c2b9ab;--text3:#8f877a;--accent:#7fbf95;--danger:#f3a3a3;--warn:#e8c07d}}
+:root[data-theme="dark"]{--bg:#17150f;--surface:#211e18;--border:#39342b;--text:#f2ede4;--text2:#c2b9ab;--text3:#8f877a;--accent:#7fbf95;--danger:#f3a3a3;--warn:#e8c07d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;padding:24px 16px 60px}
+.wrap{max-width:720px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px}
+.sub{color:var(--text3);font-size:13px;margin-bottom:20px}
+button{width:100%;padding:15px;font:600 16px inherit;border:none;border-radius:var(--radius);background:var(--accent);color:#fff;cursor:pointer;min-height:48px}
+button:disabled{opacity:.55;cursor:default}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-top:12px}
+.sor{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:14px;border-bottom:1px solid var(--border)}
+.sor:last-child{border-bottom:none}
+.sor b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.cim{font-weight:600;margin-bottom:6px;font-size:15px}
+.ok{color:var(--accent)}.rossz{color:var(--danger)}.kozepes{color:var(--warn)}
+pre{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-size:11px;overflow:auto;max-height:260px;white-space:pre-wrap;word-break:break-word}
+.lep{color:var(--text2);font-size:13px;margin-top:10px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+th,td{text-align:right;padding:5px 4px;border-bottom:1px solid var(--border)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--text3);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Raktár sebességmérés</h1>
+<div class="sub">Megméri, hol megy el az idő a betöltésnél. Futtasd ott, ahol lassú (gépen és telefonon is).</div>
+<button id="start" onclick="futtat()">Mérés indítása</button>
+<div class="lep" id="lep"></div>
+<div id="eredmeny"></div>
+<div id="masol"></div>
+</div>
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQ8_L2omnzlmzxmt3cF4tdFq_m2x-cN6KGdUXwL4Rk4k96bBjHyObS621IlNJRAjj3/exec";
+const $ = id => document.getElementById(id);
+const mp = ms => (ms/1000).toFixed(2) + ' mp';
+const kb = b => b < 1024*1024 ? (b/1024).toFixed(0)+' KB' : (b/1048576).toFixed(2)+' MB';
+function szin(ms, jo, rossz){ return ms < jo ? 'ok' : (ms < rossz ? 'kozepes' : 'rossz'); }
+
+async function meres(action){
+  const t0 = performance.now();
+  const res = await fetch(SCRIPT_URL + '?action=' + action, {cache:'no-store'});
+  const szoveg = await res.text();
+  const t1 = performance.now();
+  let adat = null;
+  try{ adat = JSON.parse(szoveg); }catch(e){}
+  return { ms: t1-t0, bajt: new Blob([szoveg]).size, adat, http: res.status };
+}
+
+async function futtat(){
+  $('start').disabled = true;
+  $('eredmeny').innerHTML = '';
+  $('masol').innerHTML = '';
+  const naplo = { ido: new Date().toISOString(), ua: navigator.userAgent, kapcsolat: (navigator.connection&&navigator.connection.effectiveType)||'?' };
+
+  try{
+    // 1. PING - alap válaszidő, adat nélkül
+    $('lep').textContent = '1/4 · Alap válaszidő mérése...';
+    const p1 = await meres('ping');
+    const p2 = await meres('ping');   // második: már "meleg" a szkript
+    naplo.ping1 = Math.round(p1.ms); naplo.ping2 = Math.round(p2.ms);
+    if(!p1.adat || !p1.adat.ok){
+      $('eredmeny').innerHTML = '<div class="card"><div class="cim rossz">A backend régi verzió</div>'+
+        '<div style="font-size:13px;color:var(--text2)">A "ping" művelet nem ismert. Előbb publikáld újra a Code.gs-t (Üzembe helyezés → Üzembe helyezések kezelése → ✏️ → Új verzió → Üzembe helyezés), utána mérj.</div>'+
+        '<pre>'+ (p1.adat ? JSON.stringify(p1.adat) : 'HTTP '+p1.http) +'</pre></div>';
+      $('lep').textContent=''; $('start').disabled=false; return;
+    }
+    naplo.backend = p1.adat.verzio;
+
+    // 2. getAll - a tényleges napi betöltés
+    $('lep').textContent = '2/4 · Teljes adatbetöltés mérése... (ez tarthat egy ideig)';
+    const g = await meres('getAll');
+    naplo.getAllMs = Math.round(g.ms); naplo.getAllBajt = g.bajt;
+    if(g.adat && g.adat.eladasok) naplo.eladasDb = g.adat.eladasok.length;
+    if(g.adat && g.adat.termekek) naplo.termekDb = g.adat.termekek.length;
+
+    // 3. szerveroldali bontás
+    $('lep').textContent = '3/4 · Szerveroldali bontás lekérése...';
+    const d = await meres('diag');
+    naplo.diagMs = Math.round(d.ms);
+    naplo.lapok = d.adat && d.adat.lapok;
+    naplo.szerverMs = d.adat && d.adat.teljesMs;
+
+    // 4. lomtár
+    $('lep').textContent = '4/4 · Lomtár mérése...';
+    const l = await meres('getLomtar');
+    naplo.lomtarMs = Math.round(l.ms); naplo.lomtarBajt = l.bajt;
+
+    $('lep').textContent = '';
+    kiir(naplo, g, d, l, p1, p2);
+  }catch(err){
+    $('lep').textContent = '';
+    $('eredmeny').innerHTML = '<div class="card"><div class="cim rossz">A mérés megszakadt</div><pre>'+err.message+'</pre>'+
+      '<div style="font-size:13px;color:var(--text2)">Ez önmagában is információ: a kérés nem jutott végig. Küldd el ezt a hibaüzenetet.</div></div>';
+  }
+  $('start').disabled = false;
+}
+
+function kiir(n, g, d, l, p1, p2){
+  const halozatMs = n.szerverMs ? Math.max(0, n.getAllMs - n.szerverMs) : null;
+  let h = '';
+
+  h += '<div class="card"><div class="cim">Összkép</div>'+
+    '<div class="sor"><span>Alap válaszidő (üres kérés)</span><b class="'+szin(n.ping2,700,2000)+'">'+mp(n.ping2)+'</b></div>'+
+    '<div class="sor"><span>Teljes adatbetöltés</span><b class="'+szin(n.getAllMs,3000,6000)+'">'+mp(n.getAllMs)+'</b></div>'+
+    '<div class="sor"><span>Letöltött adat mérete</span><b class="'+(n.getAllBajt<400000?'ok':(n.getAllBajt<1000000?'kozepes':'rossz'))+'">'+kb(n.getAllBajt)+'</b></div>'+
+    (n.szerverMs!=null?'<div class="sor"><span>Ebből szerveroldali munka</span><b>'+mp(n.szerverMs)+'</b></div>':'')+
+    (halozatMs!=null?'<div class="sor"><span>Ebből hálózat + Google</span><b>'+mp(halozatMs)+'</b></div>':'')+
+    '<div class="sor"><span>Lomtár külön</span><b>'+mp(n.lomtarMs)+' · '+kb(n.lomtarBajt)+'</b></div>'+
+    '<div class="sor"><span>Backend verzió</span><b class="'+(n.backend==='5.5'?'ok':'kozepes')+'">'+(n.backend||'?')+(n.backend==='5.5'?'':' (elvárt: 5.5)')+'</b></div>'+
+    '<div class="sor"><span>Kapcsolat típusa</span><b>'+n.kapcsolat+'</b></div>'+
+    '</div>';
+
+  if(n.lapok && n.lapok.length){
+    h += '<div class="card"><div class="cim">Munkalapok (szerveroldali mérés)</div>'+
+      '<table><tr><th>Lap</th><th>Adatsor</th><th>Utolsó</th><th>Max sor</th><th>Olvasás</th><th>Méret</th></tr>';
+    n.lapok.forEach(function(x){
+      if(x.hiba){ h += '<tr><td>'+x.lap+'</td><td colspan="5" class="rossz">'+x.hiba+'</td></tr>'; return; }
+      const gyanus = x.maxSor > x.utolsoSor*3 + 2000;
+      h += '<tr><td>'+x.lap+'</td><td>'+x.adatSorok+'</td><td>'+x.utolsoSor+'</td>'+
+        '<td class="'+(gyanus?'rossz':'')+'">'+x.maxSor+'</td>'+
+        '<td class="'+szin(x.olvasasMs,300,1000)+'">'+x.olvasasMs+' ms</td><td>'+kb(x.bajt)+'</td></tr>';
+    });
+    h += '</table></div>';
+  }
+
+  // Értékelés
+  let ert = [];
+  if(n.ping2 > 2000) ert.push(['rossz','Már az ÜRES kérés is '+mp(n.ping2)+'. Ez nem az adat mérete – az Apps Script maga lassú (kvóta, hálózat vagy Google-oldali terhelés).']);
+  else if(n.ping2 > 700) ert.push(['kozepes','Az üres kérés '+mp(n.ping2)+' – ennyi a fix alapköltség minden kérésnél.']);
+  else ert.push(['ok','Az alap válaszidő rendben ('+mp(n.ping2)+').']);
+
+  if(n.getAllBajt > 1000000) ert.push(['rossz','A letöltött adat '+kb(n.getAllBajt)+' – ez mobilneten önmagában sok. Érdemes időszakosan betölteni az eladásokat.']);
+  else if(n.getAllBajt > 400000) ert.push(['kozepes','A letöltött adat '+kb(n.getAllBajt)+' – kezd sok lenni.']);
+
+  if(n.szerverMs != null && n.szerverMs > 4000) ert.push(['rossz','A szerveroldali munka '+mp(n.szerverMs)+' – valamelyik munkalap olvasása lassú (lásd a táblát).']);
+  if(n.lapok) n.lapok.forEach(function(x){
+    if(!x.hiba && x.maxSor > x.utolsoSor*3 + 2000)
+      ert.push(['rossz','A(z) "'+x.lap+'" lapon '+x.maxSor+' sor van lefoglalva, de csak '+x.utolsoSor+' használt. A felesleges üres sorokat törölni kell a Sheetben.']);
+  });
+  const halozat = n.szerverMs ? n.getAllMs - n.szerverMs : 0;
+  if(halozat > 5000) ert.push(['rossz','A hálózati/Google oldali rész '+mp(halozat)+' – az adat átvitele a szűk keresztmetszet.']);
+
+  h += '<div class="card"><div class="cim">Értékelés</div>' +
+    ert.map(function(e){ return '<div class="sor"><span class="'+e[0]+'">'+e[1]+'</span></div>'; }).join('') + '</div>';
+
+  $('eredmeny').innerHTML = h;
+  $('masol').innerHTML = '<div class="card"><div class="cim">Ezt küldd el</div>'+
+    '<pre id="nyers">'+JSON.stringify(n,null,1)+'</pre>'+
+    '<button onclick="masol()" style="margin-top:8px">Másolás vágólapra</button></div>';
+}
+
+function masol(){
+  const t = document.getElementById('nyers').textContent;
+  if(navigator.clipboard) navigator.clipboard.writeText(t).then(()=>alert('Kimásolva!'), ()=>alert('Nem sikerült – jelöld ki kézzel.'));
+  else alert('Jelöld ki a szöveget kézzel.');
+}
+</script>
+</body>
+</html>
