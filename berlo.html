@@ -126,7 +126,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 <!-- BEJELENTKEZÉS - 1. lépés: bérlő választás -->
 <div id="step-valaszt" class="login-wrap">
   <div class="login-card">
-    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:var(--text3);opacity:.75;">v5.4</div>
+    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:var(--text3);opacity:.75;">v5.5</div>
     <div class="login-logo">
       <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.8">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
@@ -376,7 +376,7 @@ const JUTALEK_PCT = 18;
 const CSAK_BERLOI_KAT = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA'];
 
 let products = [], berlok = [], eladas = [], rendelesek = [];
-const APP_VERZIO = '5.4';
+const APP_VERZIO = '5.5';
 console.log('Fodrász Raktár – Bérlői felület v' + APP_VERZIO);
 let bejelentkezettBerlo = null;
 let nextRid = 1;
@@ -504,6 +504,7 @@ async function loadData(silent){
     console.log('Betöltés ideje: ' + ((Date.now()-kezdetIdo)/1000).toFixed(1) + ' mp');
     alkalmazAdatokat(data);
     cacheMent();
+    bUtolsoFrissites = Date.now();
     try{ renderBerloList(); } catch(e){ console.error('renderBerloList hiba:', e); }
     if(bejelentkezettBerlo) bUpdateKatLista();
   } catch(err){
@@ -932,7 +933,9 @@ async function bRogzit(){
   } catch(err){
     console.error(err);
     showSync('Mentési hiba!', true);
-    if(err.nemJson){
+    if(/FOGLALT/.test(err.message||'')){
+      alert('Épp fut egy másik mentés.\n\nVárj 5 másodpercet, és nyomd meg újra a Rögzítést – a kosár tartalma megmaradt.');
+    } else if(err.nemJson){
       alert('FIGYELEM: a mentés eredménye bizonytalan!\n\nA rögzítés LEHET, hogy megtörtént.\n\nNe nyomd meg újra a Rögzítést! Töltsd újra az oldalt, nézd meg a Naplóban, és csak akkor rögzítsd újra, ha nincs ott.');
     } else {
       alert('A mentés SIKERTELEN, a kosár tartalma megmaradt.\n\nEllenőrizd az internetkapcsolatot és nyomd meg újra a Rögzítés gombot!');
@@ -1308,18 +1311,23 @@ function bRenderJutalek(){
   loadData(voltCache);
 })();
 
-// AUTOMATIKUS FRISSÍTÉS: 3 percenként friss adatokat töltünk,
-// de csak ha egyik kosárban sincs semmi (hogy ne zavarja a munkát)
-setInterval(function(){
-  if(document.visibilityState === 'visible' && !bKosar.length && !brKosar.length){
-    loadData(true);
-  }
-}, 180000);
+// ---------- FRISSÍTÉSI STRATÉGIA ----------
+// Nincs háttéridőzítő: csak akkor töltünk friss adatot, amikor a bérlő
+// visszatér az alkalmazáshoz, és akkor is legfeljebb 5 percenként egyszer.
+// (Az Apps Script napi futásidő-kvótáját kímélve.)
+var bUtolsoFrissites = Date.now();
+var B_MIN_FRISSITES_MP = 300;
 
-// Amikor a bérlő visszavált az alkalmazásra (pl. másik appból), frissítünk
-window.addEventListener('focus', function(){
-  if(!bKosar.length && !brKosar.length) loadData(true);
-});
+function bFrissitHaKell(){
+  if(bKosar.length || brKosar.length) return;
+  if(document.visibilityState !== 'visible') return;
+  if((Date.now() - bUtolsoFrissites)/1000 < B_MIN_FRISSITES_MP) return;
+  bUtolsoFrissites = Date.now();
+  loadData(true);
+}
+
+document.addEventListener('visibilitychange', bFrissitHaKell);
+window.addEventListener('focus', bFrissitHaKell);
 </script>
 </body>
 </html>

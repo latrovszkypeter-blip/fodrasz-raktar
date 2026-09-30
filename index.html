@@ -313,7 +313,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v5.4 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v5.5 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -962,7 +962,7 @@ function fixDatum(d){
   return s;
 }
 
-const VART_BACKEND_VERZIO = '5.3'; // a Code.gs-ben lévő BACKEND_VERZIO értéke
+const VART_BACKEND_VERZIO = '5.5'; // a Code.gs-ben lévő BACKEND_VERZIO értéke
 
 // ---------- HELYI GYORSÍTÓTÁR ----------
 // A legutóbbi adatokat elmentjük a böngészőbe, így a következő indításnál
@@ -1060,6 +1060,7 @@ async function loadFromSheet(silent){
     alkalmazAdatokat(data);
     cacheMent();
     calcNextIds();
+    utolsoFrissites = Date.now();
     showSyncStatus('Betöltve ✓ (' + utolsoBetoltesMp + ' mp)', false);
     // Ha van aktív kosár, ne írjuk felül az eladásokat
     if(kosar.length > 0 && silent) {
@@ -1130,7 +1131,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v5.4');
+console.log('Fodrász Raktár – Admin felület v5.5');
 // ============================================================
 // HÁLÓZATI RÉTEG
 // Az Apps Script időnként HTML hibaoldalt küld JSON helyett
@@ -1214,7 +1215,9 @@ async function apiMuvelet(action, payload, onSuccess){
     console.error(err);
     isSaving = false;
     showSyncStatus('Mentési hiba', true);
-    if(err.nemJson){
+    if(/FOGLALT/.test(err.message||'')){
+      alert('Épp fut egy másik mentés a rendszerben.\n\nVárj 5 másodpercet, és próbáld újra – az adat NEM változott.');
+    } else if(err.nemJson){
       // A szerver nem adott értelmes választ: a mentés LEHET, hogy lefutott.
       // Vak újrapróbálkozás duplikálhatná a tételt, ezért ellenőrzést kérünk.
       alert('A mentés eredménye bizonytalan!\n\n' + err.message +
@@ -3598,24 +3601,27 @@ async function setJutalekStatusz(eladasId, ujStatusz){
   renderJutalek();
 }
 
-// Automatikus frissítés ha az oldal előtérbe kerül
-document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState === 'visible' && !kosar.length){
-    loadFromSheet(true);
-  }
-});
+// ---------- FRISSÍTÉSI STRATÉGIA ----------
+// Korábban három mechanizmus futott párhuzamosan (időzítő + focus +
+// visibilitychange), és a fülre visszaváltás KÉT kérést is indított.
+// Az Apps Scriptnek napi futásidő-kvótája van, amit a sok felesleges
+// kérés feleslegesen fogyasztott - ezért:
+//   - nincs többé háttéridőzítő,
+//   - a visszatéréskori frissítés legalább 5 percenként egyszer fut,
+//   - a Frissítés gomb bármikor azonnal frissít.
+let utolsoFrissites = Date.now();
+const MIN_FRISSITES_MP = 300; // 5 perc
 
-// Automatikus frissítés 30 másodpercenként - csak ha a kosár üres
-setInterval(function(){
-  if(document.visibilityState === 'visible' && !isLoading && !kosar.length){
-    loadFromSheet(true);
-  }
-}, 180000);
+function frissitHaKell(){
+  if(isLoading || isSaving || kosar.length) return;
+  if(document.visibilityState !== 'visible') return;
+  if((Date.now() - utolsoFrissites) / 1000 < MIN_FRISSITES_MP) return;
+  utolsoFrissites = Date.now();
+  loadFromSheet(true);
+}
 
-// Focus esemény - csak ha a kosár üres
-window.addEventListener('focus', function(){
-  if(!isLoading && !kosar.length) loadFromSheet(true);
-});
+document.addEventListener('visibilitychange', frissitHaKell);
+window.addEventListener('focus', frissitHaKell);
 
 
 // ADMIN BEJELENTKEZÉS
