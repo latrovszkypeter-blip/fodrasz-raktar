@@ -313,7 +313,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v5.3 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v5.4 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -1045,13 +1045,9 @@ async function loadFromSheet(silent){
   if(!silent) renderKeszlet();
   try{
     showSyncStatus('Betöltés...', false);
-    const controller = new AbortController();
-    // 8 mp kevés volt mobilneten: a kérés megszakadt és semmi nem jött be
-    const timeout = setTimeout(()=>controller.abort(), 30000);
     const kezdet = Date.now();
-    const res = await fetch(SCRIPT_URL + '?action=getAll', {signal: controller.signal});
-    clearTimeout(timeout);
-    const data = await res.json();
+    // Olvasás: ha a Google átmenetileg HTML hibaoldalt küld, kétszer újrapróbáljuk
+    const data = await kerdezJson(SCRIPT_URL + '?action=getAll', { idokorlat: 30000, ujraprobak: 2 });
     utolsoBetoltesMp = ((Date.now()-kezdet)/1000).toFixed(1);
     console.log('Betöltés ideje: ' + utolsoBetoltesMp + ' mp');
     if(data.error){ throw new Error(data.error); }
@@ -1134,25 +1130,73 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v5.3');
+console.log('Fodrász Raktár – Admin felület v5.4');
+// ============================================================
+// HÁLÓZATI RÉTEG
+// Az Apps Script időnként HTML hibaoldalt küld JSON helyett
+// (pillanatnyi terhelés, egyidejű kérések). Ilyenkor a böngésző
+// "The string did not match the expected pattern" hibát dob.
+// Itt ezt elkapjuk, és OLVASÁSNÁL automatikusan újrapróbáljuk.
+// ============================================================
+
+// Írásnál SOHA nem próbálunk újra magunktól: a mentés lehet, hogy
+// már lefutott, és az ismétlés duplikálná az eladást.
+async function kerdezJson(url, opciok){
+  opciok = opciok || {};
+  const idokorlat = opciok.idokorlat || 30000;
+  const ujraprobak = opciok.ujraprobak || 0;   // csak olvasásnál > 0
+  let utolsoHiba = null;
+
+  for(let proba = 0; proba <= ujraprobak; proba++){
+    if(proba > 0) await new Promise(r=>setTimeout(r, 900 * proba));
+    const controller = new AbortController();
+    const ido = setTimeout(()=>controller.abort(), idokorlat);
+    let szoveg;
+    try{
+      const res = await fetch(url, Object.assign({signal: controller.signal, cache:'no-store'}, opciok.fetchOpciok||{}));
+      clearTimeout(ido);
+      szoveg = await res.text();
+      if(!res.ok && !szoveg) throw new Error('A szerver HTTP ' + res.status + ' hibát adott');
+    }catch(err){
+      clearTimeout(ido);
+      utolsoHiba = err;
+      if(err.name === 'AbortError'){ utolsoHiba = new Error('Időtúllépés – a szerver nem válaszolt ' + Math.round(idokorlat/1000) + ' mp alatt'); utolsoHiba.name = 'AbortError'; }
+      continue; // hálózati hiba: ha van még próbálkozás, újra
+    }
+
+    try{
+      return JSON.parse(szoveg);
+    }catch(parseHiba){
+      // Nem JSON jött vissza - jellemzően Google HTML hibaoldal
+      const tiszta = String(szoveg||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+      const reszlet = tiszta.slice(0, 160) || '(üres válasz)';
+      utolsoHiba = new Error('A szerver nem adatot küldött vissza. Válasz eleje: ' + reszlet);
+      utolsoHiba.nemJson = true;
+      // olvasásnál megpróbáljuk újra, írásnál nem
+    }
+  }
+  throw utolsoHiba || new Error('Ismeretlen hálózati hiba');
+}
+
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
   const jsonStr = JSON.stringify(payload || {});
   const encoded = encodeURIComponent(jsonStr);
-  let res;
+  let data;
+  // ÍRÁS: szándékosan NINCS automatikus újrapróbálkozás - a mentés
+  // lehet, hogy már lefutott, és az ismétlés duplikálná a tételt
   if(encoded.length < 6000){
-    res = await fetch(SCRIPT_URL + '?action=' + action + '&data=' + encoded);
+    data = await kerdezJson(SCRIPT_URL + '?action=' + action + '&data=' + encoded, { idokorlat: 40000 });
   } else {
     const params = new URLSearchParams();
     params.append('action', action);
     params.append('data', jsonStr);
-    res = await fetch(SCRIPT_URL, {
+    data = await kerdezJson(SCRIPT_URL, { idokorlat: 40000, fetchOpciok: {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: params.toString()
-    });
+    }});
   }
-  const data = await res.json();
   if(data.error) throw new Error(data.error);
   return data;
 }
@@ -1169,8 +1213,17 @@ async function apiMuvelet(action, payload, onSuccess){
   }catch(err){
     console.error(err);
     isSaving = false;
-    showSyncStatus('Mentési hiba – ellenőrizd a kapcsolatot!', true);
-    alert('A művelet mentése nem sikerült!\n\n' + err.message + '\n\nEllenőrizd az internetkapcsolatot és próbáld újra.');
+    showSyncStatus('Mentési hiba', true);
+    if(err.nemJson){
+      // A szerver nem adott értelmes választ: a mentés LEHET, hogy lefutott.
+      // Vak újrapróbálkozás duplikálhatná a tételt, ezért ellenőrzést kérünk.
+      alert('A mentés eredménye bizonytalan!\n\n' + err.message +
+            '\n\nA művelet LEHET, hogy lefutott. Ne próbáld újra vakon!\n' +
+            'Nyomd meg a Frissítés gombot, és nézd meg, megtörtént-e – csak utána ismételd meg, ha nem.');
+    } else {
+      alert('A művelet mentése nem sikerült.\n\n' + err.message +
+            '\n\nA szerver nem fogadta a kérést, tehát az adat NEM változott. Ellenőrizd a kapcsolatot és próbáld újra.');
+    }
     return null;
   }
   isSaving = false;
@@ -3139,8 +3192,7 @@ async function betoltLomtar(eroltetett){
   if(!eroltetett && !lomtarElavult) return;
   lomtarTolt = true;
   try{
-    const res = await fetch(SCRIPT_URL + '?action=getLomtar');
-    const data = await res.json();
+    const data = await kerdezJson(SCRIPT_URL + '?action=getLomtar', { idokorlat: 30000, ujraprobak: 2 });
     if(data.error) throw new Error(data.error);
     lomtar = (data.lomtar||[]);
     lomtarElavult = false;
