@@ -47,12 +47,25 @@ function szin(ms, jo, rossz){ return ms < jo ? 'ok' : (ms < rossz ? 'kozepes' : 
 
 async function meres(action){
   const t0 = performance.now();
-  const res = await fetch(SCRIPT_URL + '?action=' + action, {cache:'no-store'});
-  const szoveg = await res.text();
+  let res, szoveg = '', http = 0, tipus = '';
+  try{
+    res = await fetch(SCRIPT_URL + '?action=' + action, {cache:'no-store'});
+    http = res.status;
+    tipus = res.headers.get('content-type') || '';
+    szoveg = await res.text();
+  }catch(err){
+    return { ms: performance.now()-t0, bajt:0, adat:null, http:0, tipus:'',
+             hiba: err.name + ': ' + err.message, nyers:'' };
+  }
   const t1 = performance.now();
-  let adat = null;
-  try{ adat = JSON.parse(szoveg); }catch(e){}
-  return { ms: t1-t0, bajt: new Blob([szoveg]).size, adat, http: res.status };
+  let adat = null, parseHiba = '';
+  try{ adat = JSON.parse(szoveg); }catch(e){ parseHiba = e.message; }
+  return {
+    ms: t1-t0, bajt: new Blob([szoveg]).size, adat, http, tipus, parseHiba,
+    // Ha nem adat jött vissza, elmentjük a válasz elejét - ebből derül ki,
+    // mit küldött valójában a szerver
+    nyers: adat ? '' : String(szoveg||'').slice(0, 600)
+  };
 }
 
 async function futtat(){
@@ -79,6 +92,9 @@ async function futtat(){
     $('lep').textContent = '2/4 · Teljes adatbetöltés mérése... (ez tarthat egy ideig)';
     const g = await meres('getAll');
     naplo.getAllMs = Math.round(g.ms); naplo.getAllBajt = g.bajt;
+    naplo.getAllHttp = g.http; naplo.getAllTipus = g.tipus;
+    if(g.nyers){ naplo.getAllNyersValasz = g.nyers; naplo.getAllParseHiba = g.parseHiba; }
+    if(g.hiba) naplo.getAllHiba = g.hiba;
     if(g.adat && g.adat.eladasok) naplo.eladasDb = g.adat.eladasok.length;
     if(g.adat && g.adat.termekek) naplo.termekDb = g.adat.termekek.length;
 
@@ -86,6 +102,9 @@ async function futtat(){
     $('lep').textContent = '3/4 · Szerveroldali bontás lekérése...';
     const d = await meres('diag');
     naplo.diagMs = Math.round(d.ms);
+    naplo.diagHttp = d.http;
+    if(d.nyers) naplo.diagNyersValasz = d.nyers;
+    if(d.hiba) naplo.diagHiba = d.hiba;
     naplo.lapok = d.adat && d.adat.lapok;
     naplo.szerverMs = d.adat && d.adat.teljesMs;
 
@@ -93,6 +112,7 @@ async function futtat(){
     $('lep').textContent = '4/4 · Lomtár mérése...';
     const l = await meres('getLomtar');
     naplo.lomtarMs = Math.round(l.ms); naplo.lomtarBajt = l.bajt;
+    if(l.nyers) naplo.lomtarNyersValasz = l.nyers;
 
     $('lep').textContent = '';
     kiir(naplo, g, d, l, p1, p2);
@@ -130,6 +150,21 @@ function kiir(n, g, d, l, p1, p2){
         '<td class="'+szin(x.olvasasMs,300,1000)+'">'+x.olvasasMs+' ms</td><td>'+kb(x.bajt)+'</td></tr>';
     });
     h += '</table></div>';
+  }
+
+  // A LEGFONTOSABB: ha nem adat jött vissza, mutassuk meg, mi jött
+  if(n.getAllNyersValasz || n.diagNyersValasz || n.lomtarNyersValasz){
+    const nyers = n.getAllNyersValasz || n.diagNyersValasz || n.lomtarNyersValasz;
+    const html = /<!DOCTYPE|<html|<HTML/i.test(nyers);
+    h += '<div class="card" style="border-color:#fca5a5;">' +
+      '<div class="cim rossz">A szerver NEM adatot küldött vissza</div>' +
+      '<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">' +
+        (html ? 'Egy HTML oldalt kaptunk a várt adat helyett – ez jellemzően a Google hibaoldala vagy egy közbeiktatott szűrő.'
+              : 'A válasz nem értelmezhető adatként.') +
+        ' HTTP állapot: ' + (n.getAllHttp||'?') + (n.getAllTipus ? ' · típus: ' + n.getAllTipus : '') +
+      '</div>' +
+      '<pre>' + nyers.replace(/</g,'&lt;') + '</pre>' +
+    '</div>';
   }
 
   // Értékelés
