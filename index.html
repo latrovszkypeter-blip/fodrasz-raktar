@@ -313,7 +313,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v5.5 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v5.8 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -962,7 +962,7 @@ function fixDatum(d){
   return s;
 }
 
-const VART_BACKEND_VERZIO = '5.5'; // a Code.gs-ben lévő BACKEND_VERZIO értéke
+const VART_BACKEND_VERZIO = '5.6'; // a Code.gs BACKEND_VERZIO értéke // a Code.gs-ben lévő BACKEND_VERZIO értéke
 
 // ---------- HELYI GYORSÍTÓTÁR ----------
 // A legutóbbi adatokat elmentjük a böngészőbe, így a következő indításnál
@@ -1099,6 +1099,15 @@ async function loadFromSheet(silent){
 function mutatBetoltesiHiba(err, halozati){
   const sav = document.getElementById('backend-warn');
   if(!sav) return;
+  if(err && err.visszafogas){
+    sav.style.display = 'block';
+    sav.style.background = '#FEF3C7'; sav.style.borderColor = '#FCD34D'; sav.style.color = '#92400E';
+    sav.innerHTML = '⏳ <strong>A Google átmenetileg visszafogta a rendszert.</strong> ' +
+      'Ez sűrű kérések után fordul elő és 1-2 perc alatt magától elmúlik. ' +
+      'A képernyőn a legutóbbi adatok láthatók.' +
+      ' <button class="btn btn-sm" style="margin-left:8px;" onclick="visszafogasIg=0;loadFromSheet(false)">Próbáljuk most</button>';
+    return;
+  }
   sav.style.display = 'block';
   sav.style.background = '#FEE2E2';
   sav.style.borderColor = '#FCA5A5';
@@ -1131,7 +1140,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v5.5');
+console.log('Fodrász Raktár – Admin felület v5.8');
 // ============================================================
 // HÁLÓZATI RÉTEG
 // Az Apps Script időnként HTML hibaoldalt küld JSON helyett
@@ -1142,14 +1151,26 @@ console.log('Fodrász Raktár – Admin felület v5.5');
 
 // Írásnál SOHA nem próbálunk újra magunktól: a mentés lehet, hogy
 // már lefutott, és az ismétlés duplikálná az eladást.
+// A mérések szerint a Google rövid távon visszafogja a scriptet, ha sűrűn
+// érkeznek kérések - és a visszafogás percekig tart. Ezért kevés, de
+// TÜRELMES újrapróbálkozás, és ha visszafogást észlelünk, egy ideig
+// nem indítunk új kérést.
+let visszafogasIg = 0;
+
+function visszafogasAktiv(){ return Date.now() < visszafogasIg; }
+function visszafogasBe(){ visszafogasIg = Date.now() + 90000; } // 1,5 perc pihenő
+
 async function kerdezJson(url, opciok){
   opciok = opciok || {};
   const idokorlat = opciok.idokorlat || 30000;
-  const ujraprobak = opciok.ujraprobak || 0;   // csak olvasásnál > 0
+  const ujraprobak = opciok.ujraprobak || 0;
   let utolsoHiba = null;
 
   for(let proba = 0; proba <= ujraprobak; proba++){
-    if(proba > 0) await new Promise(r=>setTimeout(r, 900 * proba));
+    if(proba > 0){
+      if(opciok.jelzes) opciok.jelzes('Újrapróbálkozás (' + proba + '/' + ujraprobak + ')...');
+      await new Promise(r=>setTimeout(r, proba === 1 ? 5000 : 12000));
+    }
     const controller = new AbortController();
     const ido = setTimeout(()=>controller.abort(), idokorlat);
     let szoveg;
@@ -1171,34 +1192,46 @@ async function kerdezJson(url, opciok){
       // Nem JSON jött vissza - jellemzően Google HTML hibaoldal
       const tiszta = String(szoveg||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
       const reszlet = tiszta.slice(0, 160) || '(üres válasz)';
-      utolsoHiba = new Error('A szerver nem adatot küldött vissza. Válasz eleje: ' + reszlet);
+      utolsoHiba = new Error('A Google átmenetileg visszafogta a kéréseket (HTML válasz adat helyett). Részlet: ' + reszlet);
       utolsoHiba.nemJson = true;
+      utolsoHiba.visszafogas = true;
+      visszafogasBe();
       // olvasásnál megpróbáljuk újra, írásnál nem
     }
   }
   throw utolsoHiba || new Error('Ismeretlen hálózati hiba');
 }
 
+function irasJelzes(szoveg){ try{ showSyncStatus(szoveg, false); }catch(e){} }
+
+function ujMuveletId(){
+  return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+}
+
 // ÁLTALÁNOS API HÍVÓ - kis adat GET-tel, nagy adat POST-tal
 async function apiCall(action, payload){
-  const jsonStr = JSON.stringify(payload || {});
+  // MŰVELET-AZONOSÍTÓ: a szerver megjegyzi, mit hajtott végre. Ha ugyanez
+  // az azonosító újra megérkezik, nem futtatja le másodszor - így az
+  // újrapróbálkozás BIZTONSÁGOS, nem duplikálhat tételt.
+  const teljes = Object.assign({ muveletId: ujMuveletId() }, payload || {});
+  const jsonStr = JSON.stringify(teljes);
   const encoded = encodeURIComponent(jsonStr);
   let data;
-  // ÍRÁS: szándékosan NINCS automatikus újrapróbálkozás - a mentés
-  // lehet, hogy már lefutott, és az ismétlés duplikálná a tételt
   if(encoded.length < 6000){
-    data = await kerdezJson(SCRIPT_URL + '?action=' + action + '&data=' + encoded, { idokorlat: 40000 });
+    data = await kerdezJson(SCRIPT_URL + '?action=' + action + '&data=' + encoded,
+                            { idokorlat: 30000, ujraprobak: 1, jelzes: irasJelzes });
   } else {
     const params = new URLSearchParams();
     params.append('action', action);
     params.append('data', jsonStr);
-    data = await kerdezJson(SCRIPT_URL, { idokorlat: 40000, fetchOpciok: {
+    data = await kerdezJson(SCRIPT_URL, { idokorlat: 30000, ujraprobak: 1, jelzes: irasJelzes, fetchOpciok: {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: params.toString()
     }});
   }
   if(data.error) throw new Error(data.error);
+  if(data.ismetelt) console.log('A szerver jelezte: ez a művelet már korábban lefutott (nem duplikálódott).');
   return data;
 }
 
@@ -1215,17 +1248,27 @@ async function apiMuvelet(action, payload, onSuccess){
     console.error(err);
     isSaving = false;
     showSyncStatus('Mentési hiba', true);
-    if(/FOGLALT/.test(err.message||'')){
+    if(err.visszafogas){
+      alert('A Google átmenetileg visszafogta a rendszert.\n\n' +
+            'Ez néhány sűrű kérés után szokott előfordulni, és magától elmúlik.\n\n' +
+            'Várj 1-2 percet, és próbáld újra. A művelet egyedi azonosítót kapott, ' +
+            'ezért ismétléskor sem duplikálódhat.');
+    } else if(/FOGLALT/.test(err.message||'')){
       alert('Épp fut egy másik mentés a rendszerben.\n\nVárj 5 másodpercet, és próbáld újra – az adat NEM változott.');
     } else if(err.nemJson){
       // A szerver nem adott értelmes választ: a mentés LEHET, hogy lefutott.
       // Vak újrapróbálkozás duplikálhatná a tételt, ezért ellenőrzést kérünk.
-      alert('A mentés eredménye bizonytalan!\n\n' + err.message +
-            '\n\nA művelet LEHET, hogy lefutott. Ne próbáld újra vakon!\n' +
-            'Nyomd meg a Frissítés gombot, és nézd meg, megtörtént-e – csak utána ismételd meg, ha nem.');
+      alert('A szerver nem adatot küldött vissza.\n\n' + err.message +
+            '\n\nA program már újrapróbálta. A művelet egyedi azonosítót kapott, ' +
+            'ezért ismétléskor sem duplikálódhat.\n\nNyomd meg a Frissítés gombot és nézd meg, megtörtént-e.');
+    } else if(err.name === 'AbortError'){
+      alert('A szerver nem válaszolt időben.\n\n' + err.message +
+            '\n\nA program háromszor is megpróbálta. Mivel minden mentés egyedi azonosítót kap, ' +
+            'az ismétlés NEM duplikálhat tételt.\n\nNyomd meg a Frissítés gombot: ha a tétel megjelent, ' +
+            'megtörtént a mentés. Ha nem, próbáld újra.');
     } else {
       alert('A művelet mentése nem sikerült.\n\n' + err.message +
-            '\n\nA szerver nem fogadta a kérést, tehát az adat NEM változott. Ellenőrizd a kapcsolatot és próbáld újra.');
+            '\n\nNyomd meg a Frissítés gombot és ellenőrizd, megtörtént-e a művelet, mielőtt újra próbálod.');
     }
     return null;
   }
@@ -3613,6 +3656,7 @@ let utolsoFrissites = Date.now();
 const MIN_FRISSITES_MP = 300; // 5 perc
 
 function frissitHaKell(){
+  if(visszafogasAktiv()) return;   // pihenő alatt nem terheljük tovább
   if(isLoading || isSaving || kosar.length) return;
   if(document.visibilityState !== 'visible') return;
   if((Date.now() - utolsoFrissites) / 1000 < MIN_FRISSITES_MP) return;
@@ -3634,8 +3678,22 @@ function inditasAdatok(){
     renderKeszlet();
     isLoading = false;
   }
-  // 2. lépés: friss adatok a háttérben
+  // 2. lépés: friss adatok - DE csak ha a mentett adat már nem friss.
+  // Minden kérésnek ~1,5 mp fix alapköltsége van az Apps Scriptnél,
+  // ezért a felesleges kéréseket elhagyjuk.
+  if(voltCache && cacheKoraMp() < 120){
+    showSyncStatus('Mentett adatok (' + Math.round(cacheKoraMp()) + ' mp) · Frissítés gombbal tölthetsz újat', false);
+    utolsoFrissites = Date.now();
+    return;
+  }
   loadFromSheet(voltCache);
+}
+
+function cacheKoraMp(){
+  try{
+    const c = JSON.parse(localStorage.getItem(CACHE_KULCS) || '{}');
+    return c.ido ? (Date.now() - c.ido) / 1000 : 1e9;
+  }catch(e){ return 1e9; }
 }
 
 function adminBelep(){
