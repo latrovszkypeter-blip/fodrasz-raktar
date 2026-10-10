@@ -275,7 +275,10 @@ tbody tr:hover td { filter: brightness(0.97); }
   /* Fejléc gombok kényelmesen tördelődjenek */
   .top-bar { flex-wrap: wrap; gap: 10px; }
   /* Bérleti díj és export űrlap mobilon egy oszlopba */
-  #berleti-form-grid, #export-grid { grid-template-columns: 1fr !important; }
+  #berleti-form-grid, #export-grid, #bev-fej-grid { grid-template-columns: 1fr !important; }
+  /* Bevételezés mobilon: a sor tördelődjön, az összegzősáv ne lógjon ki */
+  #bev-szuro-sor > * { flex: 1 1 100% !important; }
+  #bev-osszegzo { bottom: 72px; }
   #export-gyors .btn { flex: 1 1 calc(50% - 4px); justify-content: center; }
 }
 </style>
@@ -313,7 +316,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v6.2 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v6.3 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -334,6 +337,10 @@ tbody tr:hover td { filter: brightness(0.97); }
   <button class="tab active" onclick="showTab('keszlet',this)">
     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
     <span>Készlet</span>
+  </button>
+  <button class="tab" onclick="showTab('bevetel',this)">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m0 0l6.75-6.75M12 19.5l-6.75-6.75M3 3h18"/></svg>
+    <span>Bevételezés</span>
   </button>
   <button class="tab" onclick="showTab('eladas',this)">
     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"/></svg>
@@ -664,6 +671,40 @@ tbody tr:hover td { filter: brightness(0.97); }
   <div id="export-lista"></div>
 </div>
 
+<div id="tab-bevetel" class="page">
+  <div class="section-header">
+    <div class="section-title">Bevételezés</div>
+    <div style="font-size:13px;color:var(--text2);">Beérkezett áru rögzítése egy csomagban – naplózva a könyveléshez</div>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:12px;">
+    <div style="display:grid;grid-template-columns:1fr 1.3fr 1.3fr;gap:10px;" id="bev-fej-grid">
+      <div class="form-row" style="margin:0;"><label>Beérkezés dátuma</label><input id="bev-datum" type="date" /></div>
+      <div class="form-row" style="margin:0;"><label>Szállító</label><input id="bev-szallito" type="text" placeholder="pl. L'Oréal" /></div>
+      <div class="form-row" style="margin:0;"><label>Bizonylat / számlaszám</label><input id="bev-bizonylat" type="text" placeholder="opcionális" /></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="bev-arfrissites" checked style="width:16px;height:16px;" />
+      <span>A megadott beszerzési árakkal frissítse a termékek árát is</span>
+    </label>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;" id="bev-szuro-sor">
+    <input id="bev-kereses" type="text" placeholder="Keresés termékre..." oninput="renderBevetel()" style="flex:2;min-width:180px;padding:10px 12px;font-size:14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:inherit;" />
+    <select id="bev-kat" onchange="renderBevetel()" style="flex:1;min-width:150px;"></select>
+    <button class="btn" onclick="bevCsakKitoltott()" id="bev-szures-gomb" style="white-space:nowrap;">Csak a kitöltöttek</button>
+  </div>
+
+  <div id="bev-lista"></div>
+
+  <div id="bev-osszegzo" style="position:sticky;bottom:0;background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:var(--radius-lg);padding:14px 18px;margin-top:12px;box-shadow:0 -4px 12px rgba(0,0,0,0.06);z-index:40;"></div>
+
+  <div class="section-header" style="margin-top:28px;">
+    <div class="section-title" style="font-size:15px;">Korábbi bevételezések</div>
+  </div>
+  <div id="bev-elozmeny"></div>
+</div>
+
 <div id="tab-berleti" class="page">
   <div class="section-header">
     <div class="section-title">Bérleti díjak</div>
@@ -963,7 +1004,7 @@ function fixDatum(d){
   return s;
 }
 
-const VART_BACKEND_VERZIO = '6.1'; // a Code.gs BACKEND_VERZIO értéke // a Code.gs-ben lévő BACKEND_VERZIO értéke
+const VART_BACKEND_VERZIO = '6.3'; // a Code.gs BACKEND_VERZIO értéke // a Code.gs-ben lévő BACKEND_VERZIO értéke
 
 // ---------- HELYI GYORSÍTÓTÁR ----------
 // A legutóbbi adatokat elmentjük a böngészőbe, így a következő indításnál
@@ -975,7 +1016,7 @@ function cacheMent(){
     localStorage.setItem(CACHE_KULCS, JSON.stringify({
       ido: Date.now(),
       termekek: products, berlok: berlok, eladasok: eladas,
-      rendelesek: rendelesek, berleti: berleti
+      rendelesek: rendelesek, berleti: berleti, bevetelezes: bevetelezes
     }));
   }catch(e){ /* tele a tároló - nem baj, csak gyorsítótár */ }
 }
@@ -1003,6 +1044,13 @@ function alkalmazAdatokat(data){
   berlok = (data.berlok||[]).map(b=>({
     id:Number(b.id), nev:String(b.nev||''), adoszam:String(b.adoszam||''), telefon:String(b.telefon||''), pin:String(b.pin||'').trim()
   })).filter(b=>b.id && b.nev);
+  bevetelezes = (data.bevetelezes||[]).map(x=>({
+    id:Number(x.id), datum:String(x.datum||'').slice(0,10), termekId:Number(x.termekId)||0,
+    termekNev:String(x.termekNev||''), kategoria:String(x.kategoria||''),
+    db:Number(x.db)||0, egysegar:Number(x.egysegar)||0, osszeg:Number(x.osszeg)||0,
+    szallito:String(x.szallito||''), bizonylat:String(x.bizonylat||''),
+    megjegyzes:String(x.megjegyzes||''), csoport:String(x.csoport||'')
+  })).filter(x=>x.id);
   berleti = (data.berleti||[]).map(x=>({
     id:Number(x.id), berloId:Number(x.berloId), honap:String(x.honap||'').slice(0,7),
     osszeg:Number(x.osszeg)||0,
@@ -1142,7 +1190,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v6.2');
+console.log('Fodrász Raktár – Admin felület v6.3');
 // ============================================================
 // HÁLÓZATI RÉTEG
 // Az Apps Script időnként HTML hibaoldalt küld JSON helyett
@@ -1352,6 +1400,7 @@ function showTab(t,el){
   if(t==='rendeles')renderRendeles();
   if(t==='berleti')renderBerleti();
   if(t==='export')renderExport();
+  if(t==='bevetel')renderBevetel();
   if(t==='lomtar'){
     if(lomtarElavult){
       document.getElementById('lomtar-lista').innerHTML='<div class="empty-state" style="padding:40px;">Lomtár betöltése...</div>';
@@ -2277,7 +2326,13 @@ function expAdatok(){
     return true;
   }).sort((a,b)=> a.honap.localeCompare(b.honap) || a.berloId-b.berloId);
 
-  return { tol, ig, afa, eladasok, berletiek };
+  const bevetelek = bevetelezes.filter(x=>{
+    if(tol && x.datum < tol) return false;
+    if(ig && x.datum > ig) return false;
+    return true;
+  }).sort((a,b)=> (a.datum||'').localeCompare(b.datum||''));
+
+  return { tol, ig, afa, eladasok, berletiek, bevetelek };
 }
 
 const FIZ_MOD_SZOVEG = { keszpenz:'Készpénz', utalas:'Utalás' };
@@ -2402,6 +2457,15 @@ function expTablak(){
     { kulcs:'jutalekok', nev:'Jutalékok',
       fejlec:['Dátum','Bérlő','Adószám','Kategória','Termék','Db','Eladás bruttó','Jutalék','Státusz'],
       sorok: jutalekSorok },
+    { kulcs:'bevetelezes', nev:'Bevételezés (beszerzés)',
+      fejlec:['Dátum','Szállító','Bizonylat','Kategória','Termék','Db','Beszerzési egységár','Összeg bruttó',
+              'Nettó','ÁFA ('+afa+'%)','Megjegyzés'],
+      sorok: d.bevetelek.map(x=>[
+        x.datum, x.szallito||'', x.bizonylat||'', x.kategoria||'', x.termekNev||'',
+        x.db, x.egysegar, x.osszeg,
+        expNetto(x.osszeg, afa), expAfaErtek(x.osszeg, afa),
+        x.megjegyzes||''
+      ]) },
     { kulcs:'keszlet', nev:'Készlet (mai állapot)',
       fejlec:['Kategória','Termék','Készlet (db)','Beszerzési egységár','Beszerzési érték','Fogyasztói ár','Készlet fogyasztói értéken'],
       sorok: keszletSorok }
@@ -2418,6 +2482,7 @@ function renderExport(){
   const osszBrutto = d.eladasok.filter(e=>(e.tipus||'berlo')!=='vendeg').reduce((s,e)=>s+e.db*e.ar,0);
   const vendBrutto = d.eladasok.filter(e=>(e.tipus||'berlo')==='vendeg').reduce((s,e)=>s+e.db*e.ar,0);
   const berletOssz = d.berletiek.reduce((s,x)=>s+x.osszeg,0);
+  const bevOssz = d.bevetelek.reduce((s,x)=>s+Number(x.osszeg||0),0);
 
   div.innerHTML =
     '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:12px;">' +
@@ -2426,6 +2491,7 @@ function renderExport(){
         '<span>Bérlői vásárlás: <strong>'+fmt(osszBrutto)+'</strong></span>' +
         '<span>Bérleti díj: <strong>'+fmt(berletOssz)+'</strong></span>' +
         '<span>Vendégeladás: <strong>'+fmt(vendBrutto)+'</strong></span>' +
+        '<span>Bevételezés (beszerzés): <strong>'+fmt(bevOssz)+'</strong></span>' +
       '</div>' +
     '</div>' +
     tablak.map(function(t){
@@ -2838,6 +2904,315 @@ async function teljesitRendeles(datum, mod){
   });
   teljesitesKulcs = null;
   return data;
+}
+
+
+// ============================================================
+// BEVÉTELEZÉS
+// Beérkezett áru rögzítése EGY csomagban: naplózza, mi jött be
+// (a könyvelői exporthoz), és hozzáadja a készlethez.
+// ============================================================
+
+let bevetelezes = [];            // korábbi bevételezések a szerverről
+let bevTetelek = {};             // {termekId: {db, ar}} - a most beírt mennyiségek
+let bevCsakKitoltottMod = false;
+const bevNyitottKatok = new Set();
+
+function bevAlapDatum(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function bevCsakKitoltott(){
+  bevCsakKitoltottMod = !bevCsakKitoltottMod;
+  const g = document.getElementById('bev-szures-gomb');
+  if(g){
+    g.textContent = bevCsakKitoltottMod ? 'Összes termék' : 'Csak a kitöltöttek';
+    g.classList.toggle('btn-primary', bevCsakKitoltottMod);
+  }
+  renderBevetel();
+}
+
+function bevToggleKat(kat){
+  if(bevNyitottKatok.has(kat)) bevNyitottKatok.delete(kat);
+  else bevNyitottKatok.add(kat);
+  renderBevetel();
+}
+
+// A beírt mennyiség/ár tárolása - NEM rajzol újra, hogy ne ugráljon a kurzor
+function bevSetDb(termekId, ertek){
+  const db = parseInt(ertek) || 0;
+  if(!bevTetelek[termekId]) bevTetelek[termekId] = { db:0, ar:null };
+  bevTetelek[termekId].db = db < 0 ? 0 : db;
+  if(bevTetelek[termekId].ar === null){
+    const p = products.find(x=>x.id===termekId);
+    bevTetelek[termekId].ar = p ? p.besar : 0;
+  }
+  bevFrissitSor(termekId);
+  bevFrissitOsszegzo();
+}
+
+function bevSetAr(termekId, ertek){
+  const ar = parseInt(ertek) || 0;
+  if(!bevTetelek[termekId]) bevTetelek[termekId] = { db:0, ar:0 };
+  bevTetelek[termekId].ar = ar < 0 ? 0 : ar;
+  bevFrissitSor(termekId);
+  bevFrissitOsszegzo();
+}
+
+function bevLep(termekId, mennyi){
+  const mostani = (bevTetelek[termekId] && bevTetelek[termekId].db) || 0;
+  const uj = Math.max(0, mostani + mennyi);
+  const input = document.getElementById('bev-db-'+termekId);
+  if(input) input.value = uj || '';
+  bevSetDb(termekId, uj);
+}
+
+// Egyetlen sor sorösszegének frissítése (nem rajzolunk újra mindent)
+function bevFrissitSor(termekId){
+  const t = bevTetelek[termekId] || { db:0, ar:0 };
+  const cella = document.getElementById('bev-sor-'+termekId);
+  if(cella) cella.textContent = t.db > 0 ? fmt(t.db * (t.ar||0)) : '';
+  const sor = document.getElementById('bev-row-'+termekId);
+  if(sor) sor.style.background = t.db > 0 ? 'var(--accent-light, #EAF6E9)' : '';
+}
+
+function bevFrissitOsszegzo(){
+  const div = document.getElementById('bev-osszegzo');
+  if(!div) return;
+  const tetelek = Object.keys(bevTetelek)
+    .map(id=>({ id:Number(id), ...bevTetelek[id] }))
+    .filter(t=>t.db > 0);
+  const osszDb = tetelek.reduce((s,t)=>s+t.db, 0);
+  const osszErtek = tetelek.reduce((s,t)=>s+t.db*(t.ar||0), 0);
+
+  div.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">' +
+      '<div style="font-size:13px;">' +
+        (tetelek.length
+          ? '<strong>'+tetelek.length+' féle termék · '+osszDb+' db</strong><br><span style="color:var(--text2);">Beszerzési érték: <strong>'+fmt(osszErtek)+'</strong></span>'
+          : '<span style="color:var(--text3);">Írd be a beérkezett darabszámokat, majd mentsd el egyben.</span>') +
+      '</div>' +
+      '<div style="display:flex;gap:8px;">' +
+        (tetelek.length ? '<button class="btn btn-sm" onclick="bevUrites()">Ürítés</button>' : '') +
+        '<button class="btn btn-primary" onclick="bevMentes()" id="bev-mentes-gomb"' + (tetelek.length?'':' disabled') + '>Bevételezés mentése</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function bevUrites(){
+  if(!confirm('Törlöd az összes beírt mennyiséget?')) return;
+  bevTetelek = {};
+  renderBevetel();
+}
+
+function renderBevetel(){
+  // Dátum alapértelmezés
+  const dEl = document.getElementById('bev-datum');
+  if(dEl && !dEl.value) dEl.value = bevAlapDatum();
+
+  // Kategória szűrő feltöltése
+  const katSel = document.getElementById('bev-kat');
+  if(katSel){
+    const ert = katSel.value;
+    const katok = [...new Set(products.map(p=>p.kat))].sort((a,b)=>a.localeCompare(b,'hu'));
+    katSel.innerHTML = '<option value="">Minden kategória</option>' + katok.map(k=>`<option value="${k}">${k}</option>`).join('');
+    katSel.value = ert;
+  }
+
+  const q = (document.getElementById('bev-kereses').value||'').toLowerCase();
+  const katSzuro = document.getElementById('bev-kat').value;
+
+  let list = products.filter(p=>{
+    if(bevCsakKitoltottMod && !(bevTetelek[p.id] && bevTetelek[p.id].db > 0)) return false;
+    if(q && !p.nev.toLowerCase().includes(q) && !p.kat.toLowerCase().includes(q)) return false;
+    if(katSzuro && p.kat !== katSzuro) return false;
+    return true;
+  });
+
+  const div = document.getElementById('bev-lista');
+  if(!list.length){
+    div.innerHTML = '<div class="empty-state" style="padding:40px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">'+
+      (bevCsakKitoltottMod ? 'Még nincs kitöltött tétel' : 'Nincs találat')+'</div>';
+    bevFrissitOsszegzo();
+    bevRenderElozmeny();
+    return;
+  }
+
+  // Kategóriánként csoportosítva, a Készlet fülhöz hasonlóan
+  const byKat = {};
+  list.forEach(p=>{ if(!byKat[p.kat]) byKat[p.kat]=[]; byKat[p.kat]=byKat[p.kat].concat([p]); });
+  const katok = Object.keys(byKat).sort((a,b)=>a.localeCompare(b,'hu'));
+
+  // Keresésnél vagy szűrt nézetben nyitva mutatjuk
+  const mindNyitva = !!q || !!katSzuro || bevCsakKitoltottMod;
+
+  div.innerHTML = katok.map(kat=>{
+    const termekek = byKat[kat].sort((a,b)=>a.nev.localeCompare(b.nev,'hu'));
+    const nyitva = mindNyitva || bevNyitottKatok.has(kat);
+    const kitoltott = termekek.filter(p=>bevTetelek[p.id] && bevTetelek[p.id].db > 0);
+    const katDb = kitoltott.reduce((s,p)=>s+bevTetelek[p.id].db, 0);
+
+    const sorok = termekek.map(p=>{
+      const t = bevTetelek[p.id] || { db:0, ar:null };
+      const ar = t.ar !== null && t.ar !== undefined ? t.ar : p.besar;
+      const vanDb = t.db > 0;
+      return `<div id="bev-row-${p.id}" style="${vanDb?'background:#EAF6E9;':''}padding:10px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:140px;">
+          <div style="font-weight:500;font-size:13px;">${p.nev}</div>
+          <div style="font-size:11px;color:var(--text3);">Készlet: ${p.keszlet} db${p.keszlet < p.min ? ' · <span style="color:#991b1b;">minimum alatt</span>' : ''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <button class="btn btn-sm" onclick="bevLep(${p.id},-1)" style="padding:6px 10px;min-width:34px;">−</button>
+          <input id="bev-db-${p.id}" type="number" inputmode="numeric" min="0" value="${t.db||''}" placeholder="0"
+                 onchange="bevSetDb(${p.id},this.value)" oninput="bevSetDb(${p.id},this.value)"
+                 style="width:62px;text-align:center;padding:8px 4px;font-size:15px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:inherit;" />
+          <button class="btn btn-sm" onclick="bevLep(${p.id},1)" style="padding:6px 10px;min-width:34px;">+</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" inputmode="numeric" min="0" value="${ar||''}" placeholder="besz. ár"
+                 onchange="bevSetAr(${p.id},this.value)"
+                 title="Beszerzési egységár"
+                 style="width:82px;text-align:right;padding:8px 6px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);font-family:inherit;" />
+          <span style="font-size:11px;color:var(--text3);">Ft</span>
+        </div>
+        <div id="bev-sor-${p.id}" style="min-width:78px;text-align:right;font-weight:600;font-size:13px;">${vanDb?fmt(t.db*(ar||0)):''}</div>
+      </div>`;
+    }).join('');
+
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">
+      <div onclick="bevToggleKat('${kat.replace(/'/g,"\\'")}')" style="background:var(--surface2);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:10px;color:var(--text3);">${nyitva?'▼':'▶'}</span>
+          <span style="font-weight:600;font-size:14px;">${kat}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${katDb ? `<span style="background:#EAF6E9;color:#2E7D32;font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;white-space:nowrap;">${katDb} db</span>` : ''}
+          <span style="font-size:11px;color:var(--text3);">${termekek.length} termék</span>
+        </div>
+      </div>
+      <div style="display:${nyitva?'block':'none'};">${sorok}</div>
+    </div>`;
+  }).join('');
+
+  bevFrissitOsszegzo();
+  bevRenderElozmeny();
+}
+
+async function bevMentes(){
+  const tetelLista = Object.keys(bevTetelek)
+    .map(id=>({ termekId:Number(id), ...bevTetelek[id] }))
+    .filter(t=>t.db > 0);
+  if(!tetelLista.length){ alert('Nincs beírt mennyiség.'); return; }
+
+  const datum = document.getElementById('bev-datum').value || bevAlapDatum();
+  const szallito = document.getElementById('bev-szallito').value.trim();
+  const bizonylat = document.getElementById('bev-bizonylat').value.trim();
+  const arFrissites = document.getElementById('bev-arfrissites').checked;
+
+  const osszErtek = tetelLista.reduce((s,t)=>s+t.db*(t.ar||0), 0);
+  const osszDb = tetelLista.reduce((s,t)=>s+t.db, 0);
+  if(!confirm('Bevételezés mentése?\n\n' + tetelLista.length + ' féle termék · ' + osszDb + ' db\n' +
+              'Beszerzési érték: ' + fmt(osszErtek) + '\nDátum: ' + datum +
+              (szallito ? '\nSzállító: ' + szallito : '') +
+              '\n\nEzek hozzáadódnak a készlethez.')) return;
+
+  const csoport = 'bev' + Date.now();
+  const sorok = tetelLista.map(t=>{
+    const p = products.find(x=>x.id===t.termekId);
+    const ar = (t.ar !== null && t.ar !== undefined) ? t.ar : (p ? p.besar : 0);
+    return {
+      id: 0, datum: datum, termekId: t.termekId,
+      termekNev: p ? p.nev : '?', kategoria: p ? p.kat : '',
+      db: t.db, egysegar: ar, osszeg: t.db * ar,
+      szallito: szallito, bizonylat: bizonylat, megjegyzes: '', csoport: csoport
+    };
+  });
+  const keszletValtozas = tetelLista.map(t=>({ termekId: t.termekId, delta: t.db }));
+  // Csak azoknál frissítjük az árat, ahol tényleg változott
+  const ujArak = arFrissites ? tetelLista.filter(t=>{
+    const p = products.find(x=>x.id===t.termekId);
+    return p && t.ar !== null && t.ar !== undefined && Number(t.ar) !== Number(p.besar);
+  }).map(t=>({ termekId: t.termekId, besar: t.ar })) : [];
+
+  await apiMuvelet('bevetelezes', { tetelek: sorok, keszletValtozas, ujArak }, function(data){
+    sorok.forEach(function(sor, i){
+      sor.id = (data.ids && data.ids[i]) || 0;
+      bevetelezes.push(sor);
+      const p = products.find(x=>x.id===sor.termekId);
+      if(p){
+        p.keszlet += sor.db;
+        if(arFrissites && Number(sor.egysegar) !== Number(p.besar)) p.besar = Number(sor.egysegar);
+      }
+    });
+    bevTetelek = {};
+    document.getElementById('bev-bizonylat').value = '';
+    renderBevetel();
+    renderStats();
+    alert('Bevételezés elmentve!\n\n' + sorok.length + ' féle termék · ' + osszDb + ' db hozzáadva a készlethez.' +
+          (data.arFrissitve ? '\n' + data.arFrissitve + ' terméknél frissült a beszerzési ár.' : ''));
+  });
+}
+
+function bevRenderElozmeny(){
+  const div = document.getElementById('bev-elozmeny');
+  if(!div) return;
+  if(!bevetelezes.length){
+    div.innerHTML = '<div class="empty-state" style="padding:30px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">Még nincs rögzített bevételezés</div>';
+    return;
+  }
+  // Csoportonként (egy bevételezési csomag = egy kártya)
+  const csop = {};
+  const sorrend = [];
+  bevetelezes.forEach(b=>{
+    const key = b.csoport || (b.datum + '||' + (b.szallito||''));
+    if(!csop[key]){ csop[key] = []; sorrend.push(key); }
+    csop[key].push(b);
+  });
+  sorrend.sort((a,b)=>{
+    const da = csop[a][0].datum || '', db2 = csop[b][0].datum || '';
+    return db2.localeCompare(da);
+  });
+
+  div.innerHTML = sorrend.slice(0, 30).map((key, idx)=>{
+    const t = csop[key];
+    const elso = t[0];
+    const osszDb = t.reduce((s,x)=>s+Number(x.db||0), 0);
+    const osszErtek = t.reduce((s,x)=>s+Number(x.osszeg||0), 0);
+    const bodyId = 'bevcs-'+idx;
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">
+      <div onclick="toggleBevCs('${bodyId}')" style="background:var(--surface2);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:10px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span id="${bodyId}-arrow" style="font-size:10px;color:var(--text3);">▶</span>
+          <span style="font-weight:600;font-size:14px;">${elso.datum||''}</span>
+          ${elso.szallito?`<span style="font-size:12px;color:var(--text2);">${elso.szallito}</span>`:''}
+          ${elso.bizonylat?`<span style="font-size:11px;color:var(--text3);">${elso.bizonylat}</span>`:''}
+          <span style="font-size:12px;color:var(--text2);">${t.length} féle · ${osszDb} db</span>
+        </div>
+        <span style="font-weight:700;font-size:14px;white-space:nowrap;">${fmt(osszErtek)}</span>
+      </div>
+      <div id="${bodyId}" style="display:none;">
+        ${t.map(x=>`<div style="padding:9px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div style="min-width:0;">
+            <div style="font-weight:500;font-size:13px;">${x.termekNev||'?'}</div>
+            <div style="font-size:11px;color:var(--text3);">${x.kategoria||''}</div>
+          </div>
+          <div style="text-align:right;white-space:nowrap;">
+            <div style="font-weight:600;font-size:13px;">${fmt(Number(x.osszeg)||0)}</div>
+            <div style="font-size:11px;color:var(--text3);">${x.db} × ${fmt(Number(x.egysegar)||0)}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleBevCs(id){
+  const el = document.getElementById(id), arrow = document.getElementById(id+'-arrow');
+  if(!el) return;
+  const nyitva = el.style.display !== 'none';
+  el.style.display = nyitva ? 'none' : 'block';
+  if(arrow) arrow.textContent = nyitva ? '▶' : '▼';
 }
 
 // ============ BÉRLETI DÍJAK ============
