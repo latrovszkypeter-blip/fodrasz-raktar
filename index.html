@@ -313,7 +313,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v6.1 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v6.2 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -1142,7 +1142,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v6.1');
+console.log('Fodrász Raktár – Admin felület v6.2');
 // ============================================================
 // HÁLÓZATI RÉTEG
 // Az Apps Script időnként HTML hibaoldalt küld JSON helyett
@@ -1916,12 +1916,16 @@ function renderNaplo(){
   // Csoportosítás: dátum (perc) + bérlő
   // Csoportosítás NAPTÁRI NAP + bérlő szerint: egy bérlő egy napi tételei
   // egy kártyára kerülnek, akkor is, ha több részletben vették ki
+  // Csoportosítás: NAP + bérlő + TÍPUS. A bérlői vásárlás és a vendégeladás
+  // külön kártyára kerül, mert más a jelentésük (egyiket fizeti, a másikból
+  // jutalékot kap) - de egy napon belül minden azonos típusú tétel összevonódik.
   const csoportok={};
   list.forEach(e=>{
     const b=berlok.find(x=>x.id===e.berloId);
     const nap=e.datum.slice(0,10);
-    const key=nap+'||'+e.berloId;
-    if(!csoportok[key]) csoportok[key]={perc:nap, berloNev:b?b.nev:'?', tetelek:[]};
+    const tip=(e.tipus||'berlo');
+    const key=nap+'||'+e.berloId+'||'+tip;
+    if(!csoportok[key]) csoportok[key]={perc:nap, tipus:tip, berloNev:b?b.nev:'?', tetelek:[]};
     csoportok[key].tetelek.push(e);
   });
 
@@ -1936,9 +1940,14 @@ function renderNaplo(){
     const nyitva=nyitottNaploCsoportok.has(key);
     const csId='ncs'+idx;
     const totBev=cs.tetelek.reduce((s,e)=>s+e.db*e.ar,0);
+    const csVendeg = cs.tipus === 'vendeg';
     const rogzFajtak = [...new Set(cs.tetelek.map(e=>e.rogzitette||'admin'))];
     const rogz = rogzFajtak.length===1 ? rogzFajtak[0] : 'vegyes';
-    const headerBg = rogz==='berlo' ? 'background:#E3F2FD;' : 'background:var(--surface2);';
+    // A kártya háttere a TÍPUST jelzi: vendégeladás melegebb, bérlői vásárlás hidegebb
+    const headerBg = csVendeg ? 'background:#FDF0E6;' : (rogz==='berlo' ? 'background:#E3F2FD;' : 'background:var(--surface2);');
+    const tipusCimke = csVendeg
+      ? '<span style="background:#FDECEC;color:#C0392B;font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;white-space:nowrap;">Vendégeladás</span>'
+      : '<span style="background:#EAF6E9;color:#2E7D32;font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;white-space:nowrap;">Bérlői vásárlás</span>';
     const rogzCimke = rogz==='berlo'
       ? '<span style="background:#D6E9FB;color:#1565C0;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;">Bérlő rögzítette</span>'
       : rogz==='vegyes'
@@ -1950,6 +1959,7 @@ function renderNaplo(){
         <div onclick="toggleNcs('${csId}', this.dataset.kulcs)" data-kulcs="${key}" style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;flex-wrap:wrap;">
           <span id="${csId}-arrow" style="font-size:10px;color:var(--text3);">${nyitva?'▼':'▶'}</span>
           <span style="font-weight:600;font-size:14px;">${cs.perc} · ${cs.berloNev}</span>
+          ${tipusCimke}
           ${rogzCimke}
           <span style="font-size:12px;color:var(--text2);">${cs.tetelek.length} tétel · <strong>${fmt2(totBev)}</strong></span>
         </div>
@@ -2014,7 +2024,8 @@ async function delNaploCsoport(key){
   const reszek = key.split('||');
   const nap = reszek[0];
   const bId = parseInt(reszek[1]);
-  const torlendo = eladas.filter(e=>e.datum.slice(0,10)===nap && e.berloId===bId);
+  const tip = reszek[2] || 'berlo';
+  const torlendo = eladas.filter(e=>e.datum.slice(0,10)===nap && e.berloId===bId && (e.tipus||'berlo')===tip);
   if(!torlendo.length) return;
   if(!confirm('Biztosan törlöd az összes '+torlendo.length+' tételt ebből a csoportból? 30 napig visszaállítható lesz.')) return;
   // A szerver végzi: sorok lomtárba + törlés + készlet visszaállítás, atomikusan
@@ -2030,7 +2041,7 @@ async function delNaploCsoport(key){
       const p = products.find(x=>x.id===e.termekId);
       if(p) p.keszlet += e.db;
     });
-    eladas = eladas.filter(e=>!(e.datum.slice(0,10)===nap && e.berloId===bId));
+    eladas = eladas.filter(e=>!(e.datum.slice(0,10)===nap && e.berloId===bId && (e.tipus||'berlo')===tip));
     renderNaplo();
     lomtarElavult = true;
   });

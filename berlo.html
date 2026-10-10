@@ -126,7 +126,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 <!-- BEJELENTKEZÉS - 1. lépés: bérlő választás -->
 <div id="step-valaszt" class="login-wrap">
   <div class="login-card">
-    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:var(--text3);opacity:.75;">v6.1</div>
+    <div style="position:fixed;bottom:8px;right:12px;font-size:11px;color:var(--text3);opacity:.75;">v6.2</div>
     <div class="login-logo">
       <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.8">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
@@ -376,7 +376,7 @@ const JUTALEK_PCT = 18;
 const CSAK_BERLOI_KAT = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA'];
 
 let products = [], berlok = [], eladas = [], rendelesek = [];
-const APP_VERZIO = '6.1';
+const APP_VERZIO = '6.2';
 console.log('Fodrász Raktár – Bérlői felület v' + APP_VERZIO);
 let bejelentkezettBerlo = null;
 let nextRid = 1;
@@ -1043,10 +1043,11 @@ function bRenderNaplo(){
   }
 
   // Egy NAPTÁRI NAP tételei egy lenyitható kártyára kerülnek
+  // Nap + TÍPUS szerint: a saját vásárlás és a vendégeladás külön kártyán
   const csoportok = {};
   const sorrend = [];
   list.forEach(function(e){
-    const key = e.datum.slice(0,10);
+    const key = e.datum.slice(0,10) + '||' + (e.tipus==='vendeg' ? 'vendeg' : 'berlo');
     if(!csoportok[key]){ csoportok[key] = []; sorrend.push(key); }
     csoportok[key].push(e);
   });
@@ -1077,7 +1078,10 @@ function bRenderNaplo(){
       '<div onclick="bToggleNcs(\''+bodyId+'\')" style="background:var(--surface2);display:flex;justify-content:space-between;align-items:center;padding:12px 16px;gap:8px;cursor:pointer;flex-wrap:wrap;">' +
         '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
           '<span id="'+bodyId+'-arrow" style="font-size:10px;color:var(--text3);">▶</span>' +
-          '<span style="font-weight:600;font-size:14px;">'+key+'</span>' +
+          '<span style="font-weight:600;font-size:14px;">'+key.split('||')[0]+'</span>' +
+          (key.split('||')[1]==='vendeg'
+            ? '<span class="naplo-badge naplo-vendeg">Vendégeladás</span>'
+            : '<span class="naplo-badge naplo-berlo">Saját vásárlás</span>') +
           rogzCimke + fizCsCimke +
           '<span style="font-size:12px;color:var(--text2);">'+tetelek.length+' tétel</span>' +
         '</div>' +
