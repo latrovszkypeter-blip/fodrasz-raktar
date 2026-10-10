@@ -313,7 +313,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v5.8 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v6.1 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -719,6 +719,7 @@ tbody tr:hover td { filter: brightness(0.97); }
       <option value="fuggoben">Függőben</option>
       <option value="megrendelve">Megrendelve</option>
       <option value="megerkezett">Megérkezett</option>
+      <option value="teljesitve">Teljesítve (kifizetve)</option>
     </select>
     <button class="btn" onclick="clearRendelesFilter()">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -962,7 +963,7 @@ function fixDatum(d){
   return s;
 }
 
-const VART_BACKEND_VERZIO = '5.6'; // a Code.gs BACKEND_VERZIO értéke // a Code.gs-ben lévő BACKEND_VERZIO értéke
+const VART_BACKEND_VERZIO = '6.1'; // a Code.gs BACKEND_VERZIO értéke // a Code.gs-ben lévő BACKEND_VERZIO értéke
 
 // ---------- HELYI GYORSÍTÓTÁR ----------
 // A legutóbbi adatokat elmentjük a böngészőbe, így a következő indításnál
@@ -1012,7 +1013,9 @@ function alkalmazAdatokat(data){
   rendelesek = (data.rendelesek||[]).map(r=>({
     id:Number(r.id), berloId:Number(r.berloId), termekId:Number(r.termekId)||0,
     termekNev:r.termekNev||'', db:Number(r.db)||0, megjegyzes:r.megjegyzes||'',
-    datum:r.datum||'', statusz:r.statusz||'fuggoben'
+    datum:r.datum||'', statusz:r.statusz||'fuggoben',
+    fizetve:(r.fizetve===true || String(r.fizetve||'').toLowerCase()==='igen') ? 'igen' : '',
+    fizetesDatum:String(r.fizetesDatum||''), fizetesMod:String(r.fizetesMod||'')
   }));
   eladas = (data.eladasok||[]).map(e=>({
     id:Number(e.id), berloId:Number(e.berloId), termekId:Number(e.termekId),
@@ -1084,19 +1087,16 @@ async function loadFromSheet(silent){
     // Árazást NEM frissítjük automatikusan - megőrizzük a nyitott kategóriákat
   }catch(err){
     console.error(err);
-    const halozati = (err.name === 'AbortError' || err.name === 'TypeError' || /Failed to fetch|NetworkError|Load failed/i.test(err.message||''));
-    if(err.name==='AbortError'){
-      showSyncStatus('Időtúllépés – nincs internetkapcsolat?', true);
-    } else {
-      showSyncStatus('Nem sikerült betölteni', true);
-    }
+    const idotullepes = (err.name === 'AbortError');
+    const halozati = (err.name === 'TypeError' || /Failed to fetch|NetworkError|Load failed/i.test(err.message||''));
+    showSyncStatus(idotullepes ? 'A szerver nem válaszolt időben' : 'Nem sikerült betölteni', true);
     // FONTOS: a hiba a képernyőn is látszik, különben a gyorsítótárból
     // megjelenő régi adatok elfedik, hogy a frissítés nem sikerült
-    mutatBetoltesiHiba(err, halozati);
+    mutatBetoltesiHiba(err, halozati, idotullepes);
   }
 }
 
-function mutatBetoltesiHiba(err, halozati){
+function mutatBetoltesiHiba(err, halozati, idotullepes){
   const sav = document.getElementById('backend-warn');
   if(!sav) return;
   if(err && err.visszafogas){
@@ -1113,7 +1113,9 @@ function mutatBetoltesiHiba(err, halozati){
   sav.style.borderColor = '#FCA5A5';
   sav.style.color = '#991B1B';
   sav.innerHTML = '⚠️ <strong>Nem sikerült frissíteni az adatokat.</strong> ' +
-    (halozati ? 'Nem érhető el a szerver – ellenőrizd az internetkapcsolatot.' : 'A szerver hibát adott: ' + (err.message||String(err))) +
+    (idotullepes ? 'A szerver 30 másodperc alatt nem válaszolt. Az internetkapcsolat jó – a Google oldalán akad el.'
+     : halozati ? 'Nem érhető el a szerver. Ha más oldalak működnek, valami a telefonodon blokkolja a kérést (pl. iCloud Private Relay, tartalomblokkoló vagy VPN).'
+     : 'A szerver hibát adott: ' + (err.message||String(err))) +
     ' <button class="btn btn-sm" style="margin-left:8px;" onclick="loadFromSheet(false)">Újrapróbálom</button>' +
     '<div style="font-size:12px;margin-top:6px;opacity:.85;">A képernyőn látható adatok a legutóbbi sikeres betöltésből származnak – mentés előtt érdemes megvárni a sikeres frissítést.</div>';
 }
@@ -1140,7 +1142,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v5.8');
+console.log('Fodrász Raktár – Admin felület v6.1');
 // ============================================================
 // HÁLÓZATI RÉTEG
 // Az Apps Script időnként HTML hibaoldalt küld JSON helyett
@@ -1912,12 +1914,14 @@ function renderNaplo(){
   }
 
   // Csoportosítás: dátum (perc) + bérlő
+  // Csoportosítás NAPTÁRI NAP + bérlő szerint: egy bérlő egy napi tételei
+  // egy kártyára kerülnek, akkor is, ha több részletben vették ki
   const csoportok={};
   list.forEach(e=>{
     const b=berlok.find(x=>x.id===e.berloId);
-    const perc=e.datum.slice(0,16);
-    const key=perc+'||'+e.berloId+'||'+(e.rogzitette||'admin');
-    if(!csoportok[key]) csoportok[key]={perc, berloNev:b?b.nev:'?', tetelek:[]};
+    const nap=e.datum.slice(0,10);
+    const key=nap+'||'+e.berloId;
+    if(!csoportok[key]) csoportok[key]={perc:nap, berloNev:b?b.nev:'?', tetelek:[]};
     csoportok[key].tetelek.push(e);
   });
 
@@ -1932,10 +1936,13 @@ function renderNaplo(){
     const nyitva=nyitottNaploCsoportok.has(key);
     const csId='ncs'+idx;
     const totBev=cs.tetelek.reduce((s,e)=>s+e.db*e.ar,0);
-    const rogz=cs.tetelek[0].rogzitette||'admin';
-    const headerBg=rogz==='berlo'?'background:#E3F2FD;':'background:var(--surface2);';
+    const rogzFajtak = [...new Set(cs.tetelek.map(e=>e.rogzitette||'admin'))];
+    const rogz = rogzFajtak.length===1 ? rogzFajtak[0] : 'vegyes';
+    const headerBg = rogz==='berlo' ? 'background:#E3F2FD;' : 'background:var(--surface2);';
     const rogzCimke = rogz==='berlo'
       ? '<span style="background:#D6E9FB;color:#1565C0;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;">Bérlő rögzítette</span>'
+      : rogz==='vegyes'
+      ? '<span style="background:#EDE7F6;color:#4A3B7C;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;">Admin + bérlő</span>'
       : '<span style="background:#E8E8E8;color:#444;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;white-space:nowrap;">Admin rögzítette</span>';
 
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">
@@ -1973,7 +1980,7 @@ function renderNaplo(){
           return `<div style="${rowBg}padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;">
             <div style="min-width:0;">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-weight:500;font-size:13px;">${p?p.nev:'?'}</span>${soriCimke}${fizCimke}</div>
-              <div style="font-size:11px;color:var(--text3);">${p?p.kat:''} · ${e.db} db × ${fmt2(e.ar)}</div>
+              <div style="font-size:11px;color:var(--text3);">${e.datum.slice(11,16)} · ${p?p.kat:''} · ${e.db} db × ${fmt2(e.ar)}</div>
             </div>
             <div style="text-align:right;display:flex;align-items:center;gap:8px;">
               <div>
@@ -2005,10 +2012,9 @@ function renderNaplo(){
 
 async function delNaploCsoport(key){
   const reszek = key.split('||');
-  const perc = reszek[0];
+  const nap = reszek[0];
   const bId = parseInt(reszek[1]);
-  const rogz = reszek[2] || 'admin';
-  const torlendo = eladas.filter(e=>e.datum.slice(0,16)===perc && e.berloId===bId && (e.rogzitette||'admin')===rogz);
+  const torlendo = eladas.filter(e=>e.datum.slice(0,10)===nap && e.berloId===bId);
   if(!torlendo.length) return;
   if(!confirm('Biztosan törlöd az összes '+torlendo.length+' tételt ebből a csoportból? 30 napig visszaállítható lesz.')) return;
   // A szerver végzi: sorok lomtárba + törlés + készlet visszaállítás, atomikusan
@@ -2024,7 +2030,7 @@ async function delNaploCsoport(key){
       const p = products.find(x=>x.id===e.termekId);
       if(p) p.keszlet += e.db;
     });
-    eladas = eladas.filter(e=>!(e.datum.slice(0,16)===perc && e.berloId===bId && (e.rogzitette||'admin')===rogz));
+    eladas = eladas.filter(e=>!(e.datum.slice(0,10)===nap && e.berloId===bId));
     renderNaplo();
     lomtarElavult = true;
   });
@@ -2723,6 +2729,106 @@ async function exportExcel(){
   }
 }
 
+
+// ============ RENDELÉS TELJESÍTÉSE (kifizetve -> eladás) ============
+// A leadott igényből valódi, kifizetett eladás lesz: bekerül a naplóba,
+// a számlázásba és az exportba, és levonódik a készletből.
+let teljesitesKulcs = null;
+
+function openRendelesTeljesites(key){
+  const reszek = key.split('||');
+  const nap = reszek[0], bId = parseInt(reszek[1]);
+  const tetelek = rendelesek.filter(r=>r.datum.slice(0,10)===nap && r.berloId===bId);
+  if(!tetelek.length) return;
+
+  const ismert = tetelek.filter(r=>products.find(x=>x.id===r.termekId) && !r.fizetve);
+  const egyedi = tetelek.filter(r=>!products.find(x=>x.id===r.termekId));
+  if(!ismert.length){
+    alert('Ebben a rendelésben csak szabad szöveges tételek vannak, amikhez nincs termék és ár.\n\nElőbb vedd fel őket termékként a Készlet fülön, utána teljesíthető a rendelés.');
+    return;
+  }
+
+  // Készletellenőrzés: figyelmeztetünk, de nem tiltjuk (az áru fizikailag megjöhetett)
+  const igeny = {};
+  ismert.forEach(r=>{ igeny[r.termekId] = (igeny[r.termekId]||0) + r.db; });
+  const hianyzo = [];
+  for(const tid in igeny){
+    const p = products.find(x=>x.id===parseInt(tid));
+    if(p && p.keszlet < igeny[tid]) hianyzo.push(p.nev + ' (' + p.keszlet + ' db van, ' + igeny[tid] + ' kell)');
+  }
+  if(hianyzo.length){
+    if(!confirm('Ezekből nincs elég a készleten:\n\n' + hianyzo.join('\n') +
+                '\n\nHa az áru már megérkezett, de még nem vételezted be, előbb tedd meg a Készlet fülön.\n\nMindenképp folytatod? A készlet nem megy nulla alá.')) return;
+  }
+
+  const ossz = ismert.reduce((s,r)=>{
+    const p = products.find(x=>x.id===r.termekId);
+    return s + rBerloiAr(p) * r.db;
+  }, 0);
+
+  teljesitesKulcs = key;
+  document.getElementById('fizetesModal').dataset.mod = 'rendeles';
+  document.getElementById('fizetesTitle').textContent = 'Rendelés teljesítése';
+  document.getElementById('fizetesInfo').innerHTML =
+    ismert.length + ' tétel · Összesen: <strong>' + fmt(ossz) + '</strong>' +
+    (egyedi.length ? '<div style="color:#92400E;margin-top:6px;font-size:12px;">' + egyedi.length +
+      ' szabad szöveges tétel marad a listában (nincs hozzá termék és ár).</div>' : '') +
+    '<div style="color:var(--text3);margin-top:6px;font-size:12px;">A tételek kifizetett eladásként kerülnek a naplóba, és levonódnak a készletből.</div>';
+  const ma = new Date();
+  document.getElementById('f-datum').value = ma.getFullYear()+'-'+String(ma.getMonth()+1).padStart(2,'0')+'-'+String(ma.getDate()).padStart(2,'0');
+  document.getElementById('fizetesModal').style.display='flex';
+}
+
+async function teljesitRendeles(datum, mod){
+  const key = teljesitesKulcs;
+  if(!key) return;
+  const reszek = key.split('||');
+  const nap = reszek[0], bId = parseInt(reszek[1]);
+  const tetelek = rendelesek.filter(r=>r.datum.slice(0,10)===nap && r.berloId===bId);
+  const ismert = tetelek.filter(r=>products.find(x=>x.id===r.termekId) && !r.fizetve);
+  if(!ismert.length) return;
+
+  const now = new Date();
+  const most = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+
+               String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+
+  const ujEladasok = ismert.map(function(r){
+    const p = products.find(x=>x.id===r.termekId);
+    return {
+      id: 0, berloId: r.berloId, termekId: r.termekId, db: r.db,
+      ar: rBerloiAr(p), besar: p.besar,
+      datum: most,
+      megjegyzes: ('Rendelésből (' + nap + ')' + (r.megjegyzes ? ' · ' + r.megjegyzes : '')),
+      tipus: 'berlo', jutalekOsszeg: 0, jutalekStatusz: '',
+      rogzitette: 'admin',
+      fizetve: 'igen', fizetesDatum: datum, fizetesMod: mod
+    };
+  });
+  const keszletValtozas = ismert.map(r=>({ termekId: r.termekId, delta: -r.db }));
+  const rendelesIds = ismert.map(r=>r.id);
+
+  const data = await apiMuvelet('rendelesTeljesit', {
+    ujEladasok, keszletValtozas, rendelesIds,
+    fizetesDatum: datum, fizetesMod: mod
+  }, function(data){
+    ujEladasok.forEach(function(uj, i){
+      uj.id = (data.eladasIds && data.eladasIds[i]) || 0;
+      eladas.push(uj);
+      const p = products.find(x=>x.id===uj.termekId);
+      if(p) p.keszlet = Math.max(0, p.keszlet - uj.db);
+    });
+    // A rendelés MEGMARAD, csak teljesítettként és kifizetettként jelöljük
+    rendelesIds.forEach(function(rid){
+      const r = rendelesek.find(x=>x.id===rid);
+      if(r){ r.statusz='teljesitve'; r.fizetve='igen'; r.fizetesDatum=datum; r.fizetesMod=mod; }
+    });
+    renderRendeles();
+    alert('Rendelés teljesítve!\n\n' + ujEladasok.length + ' tétel kifizetett eladásként rögzítve és levonva a készletből.\n\nA rendelés megmarad a listában „Teljesítve" jelöléssel.');
+  });
+  teljesitesKulcs = null;
+  return data;
+}
+
 // ============ BÉRLETI DÍJAK ============
 const HONAP_NEV = ['január','február','március','április','május','június','július','augusztus','szeptember','október','november','december'];
 function honapCimke(h){
@@ -2945,7 +3051,13 @@ async function saveFizetes(){
   const datum = document.getElementById('f-datum').value;
   const mod = document.getElementById('f-mod').value;
   if(!datum){ alert('Add meg a fizetés dátumát!'); return; }
-  const berletiMod = document.getElementById('fizetesModal').dataset.mod === 'berleti';
+  const modKind = document.getElementById('fizetesModal').dataset.mod;
+  if(modKind === 'rendeles'){
+    closeFizetes();
+    await teljesitRendeles(datum, mod);
+    return;
+  }
+  const berletiMod = modKind === 'berleti';
   const ids = berletiMod ? berletiTargetIds.slice() : fizetesTargetIds.slice();
   closeFizetes();
   if(berletiMod){
@@ -3281,6 +3393,9 @@ async function visszaallitLomtar(lomtarId){
 }
 
 
+// Bérlői ár: ugyanaz a képlet, amit a bérlő is lát (fogyasztói ár -10%)
+function rBerloiAr(p){ return Math.round((p && p.fogyasztoiar ? p.fogyasztoiar : 0) * 0.9); }
+
 function renderRendeles(){
   const bId = parseInt(document.getElementById('r-berlo').value)||0;
   const statF = document.getElementById('r-statusz').value;
@@ -3302,7 +3417,7 @@ function renderRendeles(){
   const tableCard = document.querySelector('#tab-rendeles .table-card');
   if(!list.length){ tableCard.innerHTML='<div class="empty-state" style="padding:40px;">Nincs rendelési igény</div>'; return; }
 
-  const statBgFn = s => s==='fuggoben'?'background:#fee2e2;color:#991b1b;':s==='megrendelve'?'background:#FFF3E0;color:#E65100;':'background:#e8f2ec;color:#2d5a3d;';
+  const statBgFn = s => s==='fuggoben'?'background:#fee2e2;color:#991b1b;':s==='megrendelve'?'background:#FFF3E0;color:#E65100;':s==='teljesitve'?'background:#E8E4F5;color:#4A3B7C;':'background:#e8f2ec;color:#2d5a3d;';
 
   // Csoportosítás: nap + bérlő
   const csoportok = {};
@@ -3319,19 +3434,39 @@ function renderRendeles(){
     const cs = csoportok[key];
     const nyitva = idx===0;
     const csId = 'rcs'+idx;
+    // Várható érték a bérlői árlista alapján
+    let csOsszeg = 0, csEgyedi = false, csTeljesitheto = false;
+    cs.tetelek.forEach(r=>{
+      const pp = products.find(x=>x.id===r.termekId);
+      if(pp){ csOsszeg += rBerloiAr(pp) * r.db; if(!r.fizetve) csTeljesitheto = true; }
+      else csEgyedi = true;
+    });
+    // Ha a csoport minden árazható tétele ki van fizetve, mutassuk az adatait
+    const fizetettek = cs.tetelek.filter(r=>r.fizetve);
+    const mindFizetve = fizetettek.length > 0 && !csTeljesitheto;
+    const fizInfo = fizetettek.length ? fizetettek[0] : null;
+    const csFizCimke = mindFizetve
+      ? '<span style="background:#e8f2ec;color:#2d5a3d;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap;">✓ Kifizetve' +
+        (fizInfo.fizetesDatum ? ' · ' + fizInfo.fizetesDatum : '') +
+        (FIZ_MOD_NEV[fizInfo.fizetesMod] ? ' · ' + FIZ_MOD_NEV[fizInfo.fizetesMod] : '') + '</span>'
+      : (fizetettek.length ? '<span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap;">Részben kifizetve</span>' : '');
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--surface2);">
         <div onclick="toggleRcs('${csId}')" style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;font-size:14px;flex:1;">
           <span id="${csId}-arrow" style="font-size:10px;color:var(--text3);">${nyitva?'▼':'▶'}</span>
           <span>${cs.nap} · ${cs.berloNev}</span>
           <span style="font-size:12px;font-weight:400;color:var(--text3);">${cs.tetelek.length} tétel</span>
+          <span style="font-size:13px;font-weight:700;white-space:nowrap;">${fmt(csOsszeg)}${csEgyedi?' <span style="font-size:10px;font-weight:400;color:var(--text3);">+ egyedi</span>':''}</span>
         </div>
-        <div style="display:flex;gap:6px;align-items:center;">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          ${csFizCimke}
+          ${csTeljesitheto ? `<button class="btn btn-sm btn-primary" onclick="openRendelesTeljesites('${key}')" title="Kifizetve: eladássá alakítja és levonja a készletből" style="white-space:nowrap;">Kifizetve</button>` : ''}
           <select class="status-select" style="font-size:12px;font-weight:500;" onchange="setRendelesCsoportStatusz('${key}',this.value,${idx})">
             <option value="">Összes státusz...</option>
             <option value="fuggoben">⏳ Mind: Függőben</option>
             <option value="megrendelve">📦 Mind: Megrendelve</option>
             <option value="megerkezett">✅ Mind: Megérkezett</option>
+            <option value="teljesitve">💰 Mind: Teljesítve</option>
           </select>
           <button class="btn btn-sm btn-danger" onclick="delRendelesCsoport('${key}')" title="Mind törlése">
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
@@ -3349,11 +3484,16 @@ function renderRendeles(){
               <div style="font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nev}${szabad?'<span style="font-size:11px;color:var(--text3);"> (szabad)</span>':''}</div>
               <div style="font-size:12px;color:var(--text2);margin-top:2px;">${kat} · ${r.datum.slice(11,16)} · ${r.db} db${r.megjegyzes?' · '+r.megjegyzes:''}</div>
             </div>
+            <div style="text-align:right;flex-shrink:0;min-width:70px;">
+              ${p ? `<div style="font-weight:600;font-size:13px;white-space:nowrap;">${fmt(rBerloiAr(p)*r.db)}</div>${r.db>1?`<div style="font-size:10px;color:var(--text3);white-space:nowrap;">${r.db} × ${fmt(rBerloiAr(p))}</div>`:''}` : '<div style="font-size:10px;color:var(--text3);">egyedi ár</div>'}
+              ${r.fizetve ? `<div style="font-size:10px;color:#2d5a3d;font-weight:600;white-space:nowrap;">✓ ${r.fizetesDatum||''}</div>` : ''}
+            </div>
             <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
               <select class="status-select" style="${statBgFn(r.statusz)}font-weight:500;font-size:12px;" onchange="setRendelesStatusz(${r.id},this.value)">
                 <option value="fuggoben" ${r.statusz==='fuggoben'?'selected':''}>⏳ Függőben</option>
                 <option value="megrendelve" ${r.statusz==='megrendelve'?'selected':''}>📦 Megrendelve</option>
                 <option value="megerkezett" ${r.statusz==='megerkezett'?'selected':''}>✅ Megérkezett</option>
+                <option value="teljesitve" ${r.statusz==='teljesitve'?'selected':''}>💰 Teljesítve</option>
               </select>
               <button class="btn btn-sm btn-danger" onclick="delRendeles(${r.id})" title="Törlés">
                 <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
