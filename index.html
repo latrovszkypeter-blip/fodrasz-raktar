@@ -1425,6 +1425,15 @@ function renderStats(){
 
 function isMobile(){ return window.innerWidth <= 640; }
 
+// Egységes kategória sorrend – a Készlet, Árazás és Bevételezés fül is ezt használja
+const KAT_SORREND = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA','ACIDIC BONDING CONCENTRATE','ACIDIC BONDING CONCENTRATE CURLS','ACIDIC COLOR GLOSS','ACIDIC GROW FULL SYSTEM','ALL SOFT','ALL SOFT MEGA CURLS','AMINO MINT','BLOND','CERAFILL','EXTREME','FRIZZ DISMISS','HIGH BRIGHT','VOLUME INJECTION','ONE UNITED','SCALP RELIEF','AMINEXIL','Refill','REDKEN BREWS','STYLING'];
+
+// A megadott kategórianeveket a fenti sorrendbe rendezi, a listában nem szereplőket a végére teszi
+function katSorrendbe(nevek){
+  const maradek = nevek.filter(k=>!KAT_SORREND.includes(k)).sort((a,b)=>String(a).localeCompare(String(b),'hu'));
+  return KAT_SORREND.filter(k=>nevek.includes(k)).concat(maradek);
+}
+
 function renderKeszlet(){
   renderStats();
   const q=document.getElementById('search').value.toLowerCase();
@@ -1460,10 +1469,9 @@ function renderKeszlet(){
   if(!list.length){kg.innerHTML='<div class="empty-state">Nincs találat</div>';return;}
   
   // Csoportosítás
-  const KAT_ORDER = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA','ACIDIC BONDING CONCENTRATE','ACIDIC BONDING CONCENTRATE CURLS','ACIDIC COLOR GLOSS','ACIDIC GROW FULL SYSTEM','ALL SOFT','ALL SOFT MEGA CURLS','AMINO MINT','BLOND','CERAFILL','EXTREME','FRIZZ DISMISS','HIGH BRIGHT','VOLUME INJECTION','ONE UNITED','SCALP RELIEF','AMINEXIL','Refill','REDKEN BREWS','STYLING'];
   const byKat = {};
   list.forEach(p=>{ if(!byKat[p.kat]) byKat[p.kat]=[]; byKat[p.kat].push(p); });
-  const katok = KAT_ORDER.filter(k=>byKat[k]).concat(Object.keys(byKat).filter(k=>!KAT_ORDER.includes(k)));
+  const katok = katSorrendbe(Object.keys(byKat));
   
   kg.innerHTML = katok.map(kat=>{
     const termekek = byKat[kat];
@@ -3015,7 +3023,7 @@ function renderBevetel(){
   const katSel = document.getElementById('bev-kat');
   if(katSel){
     const ert = katSel.value;
-    const katok = [...new Set(products.map(p=>p.kat))].sort((a,b)=>a.localeCompare(b,'hu'));
+    const katok = katSorrendbe([...new Set(products.map(p=>p.kat))]);
     katSel.innerHTML = '<option value="">Minden kategória</option>' + katok.map(k=>`<option value="${k}">${k}</option>`).join('');
     katSel.value = ert;
   }
@@ -3039,16 +3047,16 @@ function renderBevetel(){
     return;
   }
 
-  // Kategóriánként csoportosítva, a Készlet fülhöz hasonlóan
+  // Kategóriánként csoportosítva, pontosan a Készlet fül sorrendjében
   const byKat = {};
-  list.forEach(p=>{ if(!byKat[p.kat]) byKat[p.kat]=[]; byKat[p.kat]=byKat[p.kat].concat([p]); });
-  const katok = Object.keys(byKat).sort((a,b)=>a.localeCompare(b,'hu'));
+  list.forEach(p=>{ if(!byKat[p.kat]) byKat[p.kat]=[]; byKat[p.kat].push(p); });
+  const katok = katSorrendbe(Object.keys(byKat));
 
   // Keresésnél vagy szűrt nézetben nyitva mutatjuk
   const mindNyitva = !!q || !!katSzuro || bevCsakKitoltottMod;
 
   div.innerHTML = katok.map(kat=>{
-    const termekek = byKat[kat].sort((a,b)=>a.nev.localeCompare(b.nev,'hu'));
+    const termekek = byKat[kat]; // a Készlet fülhöz hasonlóan a táblázat eredeti sorrendjében
     const nyitva = mindNyitva || bevNyitottKatok.has(kat);
     const kitoltott = termekek.filter(p=>bevTetelek[p.id] && bevTetelek[p.id].db > 0);
     const katDb = kitoltott.reduce((s,p)=>s+bevTetelek[p.id].db, 0);
@@ -3491,10 +3499,9 @@ function renderArazas(){
   const container = document.getElementById('arazas-container');
   if(!container){ console.error('arazas-container not found'); return; }
   if(!products.length){ container.innerHTML='<div class="empty-state">Még nincsenek termékek betöltve. Kattints a Frissítés gombra!</div>'; return; }
-  const KAT_ORDER = ['COLOR GEL OILS','SHADES EQ','SHADES ALK','OXYDANTS','LIGHTENERS','HAJÁPOLÓK SZALONHASZNÁLATRA','ACIDIC BONDING CONCENTRATE','ACIDIC BONDING CONCENTRATE CURLS','ACIDIC COLOR GLOSS','ACIDIC GROW FULL SYSTEM','ALL SOFT','ALL SOFT MEGA CURLS','AMINO MINT','BLOND','CERAFILL','EXTREME','FRIZZ DISMISS','HIGH BRIGHT','VOLUME INJECTION','ONE UNITED','SCALP RELIEF','AMINEXIL','Refill','REDKEN BREWS','STYLING'];
   const byKat = {};
   products.forEach(p=>{ if(!byKat[p.kat]) byKat[p.kat]=[]; byKat[p.kat].push(p); });
-  const katok = KAT_ORDER.filter(k=>byKat[k]).concat(Object.keys(byKat).filter(k=>!KAT_ORDER.includes(k)));
+  const katok = katSorrendbe(Object.keys(byKat));
   const csakBerloi = new Set(CSAK_BERLOI_KAT);
 
   document.getElementById('arazas-container').innerHTML = katok.map(kat=>{
