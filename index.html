@@ -316,7 +316,7 @@ tbody tr:hover td { filter: brightness(0.97); }
     </div>
     <div>
       <div class="logo-name">Fodrász Raktár</div>
-      <div class="logo-sub">Készlet &amp; bérlő kezelő · v6.3 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
+      <div class="logo-sub">Készlet &amp; bérlő kezelő · v6.4 <span id="backend-verzio-cimke" style="opacity:.8;"></span></div>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -797,6 +797,7 @@ tbody tr:hover td { filter: brightness(0.97); }
       <option value="berletbol">Bérletiből levonva</option>
     </select>
   </div>
+  <div id="jutalek-osszegzo"></div>
   <div class="table-card">
     <div class="table-wrap">
       <table>
@@ -1004,7 +1005,7 @@ function fixDatum(d){
   return s;
 }
 
-const VART_BACKEND_VERZIO = '6.3'; // a Code.gs BACKEND_VERZIO értéke // a Code.gs-ben lévő BACKEND_VERZIO értéke
+const VART_BACKEND_VERZIO = '6.4'; // a Code.gs BACKEND_VERZIO értéke // a Code.gs-ben lévő BACKEND_VERZIO értéke
 
 // ---------- HELYI GYORSÍTÓTÁR ----------
 // A legutóbbi adatokat elmentjük a böngészőbe, így a következő indításnál
@@ -1190,7 +1191,7 @@ async function saveBerlokToSheet(){
   }
 }
 
-console.log('Fodrász Raktár – Admin felület v6.3');
+console.log('Fodrász Raktár – Admin felület v6.4');
 // ============================================================
 // HÁLÓZATI RÉTEG
 // Az Apps Script időnként HTML hibaoldalt küld JSON helyett
@@ -2436,7 +2437,9 @@ function expTablak(){
       e.datum, berloNev(e.berloId), berloAdo(e.berloId),
       p ? p.kat : '', p ? p.nev : '(törölt termék)',
       e.db, e.db * e.ar, e.jutalekOsszeg || 0,
-      JUT_STAT_SZOVEG[e.jutalekStatusz||'fuggoben'] || ''
+      JUT_STAT_SZOVEG[e.jutalekStatusz||'fuggoben'] || '',
+      (e.jutalekStatusz && e.jutalekStatusz!=='fuggoben') ? (e.fizetesDatum||'') : '',
+      (e.jutalekStatusz && e.jutalekStatusz!=='fuggoben') ? (JUT_MOD_SZOVEG[e.fizetesMod]||e.fizetesMod||'') : ''
     ];
   });
 
@@ -2463,7 +2466,7 @@ function expTablak(){
       fejlec:['Hónap','Bérlő','Adószám','Bruttó','Nettó','ÁFA ('+afa+'%)','Állapot','Fizetés dátuma','Fizetés módja','Megjegyzés'],
       sorok: berletiSorok },
     { kulcs:'jutalekok', nev:'Jutalékok',
-      fejlec:['Dátum','Bérlő','Adószám','Kategória','Termék','Db','Eladás bruttó','Jutalék','Státusz'],
+      fejlec:['Dátum','Bérlő','Adószám','Kategória','Termék','Db','Eladás bruttó','Jutalék','Státusz','Kifizetés dátuma','Kifizetés módja'],
       sorok: jutalekSorok },
     { kulcs:'bevetelezes', nev:'Bevételezés (beszerzés)',
       fejlec:['Dátum','Szállító','Bizonylat','Kategória','Termék','Db','Beszerzési egységár','Összeg bruttó',
@@ -2852,6 +2855,7 @@ function openRendelesTeljesites(key){
   }, 0);
 
   teljesitesKulcs = key;
+  fizModOpciok(false);
   document.getElementById('fizetesModal').dataset.mod = 'rendeles';
   document.getElementById('fizetesTitle').textContent = 'Rendelés teljesítése';
   document.getElementById('fizetesInfo').innerHTML =
@@ -3390,6 +3394,7 @@ function openBerletiFizetes(idsCsv){
   berletiTargetIds = String(idsCsv).split(',').map(Number).filter(n=>n);
   if(!berletiTargetIds.length) return;
   const ossz = berleti.filter(x=>berletiTargetIds.includes(x.id)).reduce((s,x)=>s+x.osszeg,0);
+  fizModOpciok(false);
   document.getElementById('fizetesTitle').textContent = 'Bérleti díj kifizetése';
   document.getElementById('fizetesInfo').innerHTML = berletiTargetIds.length+' tétel · Összesen: <strong>'+fmt(ossz)+'</strong>';
   const ma = new Date();
@@ -3425,10 +3430,26 @@ function fizetesBadge(e){
     ⏳ Nincs kifizetve</span>`;
 }
 
+// A fizetés módja legördülő tartalma. Jutalék kifizetésnél a
+// "Bérleti díjból levonva" is választható, máshol nem.
+function fizModOpciok(jutalekMod){
+  const sel = document.getElementById('f-mod');
+  if(!sel) return;
+  sel.innerHTML = '<option value="keszpenz">Készpénz</option><option value="utalas">Utalás</option>' +
+    (jutalekMod ? '<option value="berletbol">Bérleti díjból levonva</option>' : '');
+  sel.value = 'keszpenz';
+}
+
+function fizModMaiDatum(){
+  const ma = new Date();
+  return ma.getFullYear()+'-'+String(ma.getMonth()+1).padStart(2,'0')+'-'+String(ma.getDate()).padStart(2,'0');
+}
+
 let fizetesTargetIds = [];
 function openFizetes(idsCsv, tobbes){
   fizetesTargetIds = String(idsCsv).split(',').map(Number).filter(n=>n);
   if(!fizetesTargetIds.length) return;
+  fizModOpciok(false);
   document.getElementById('fizetesModal').dataset.mod = 'eladas';
   document.getElementById('fizetesTitle').textContent = 'Kifizetés rögzítése';
   const ossz = eladas.filter(e=>fizetesTargetIds.includes(e.id)).reduce((s,e)=>s+e.db*e.ar,0);
@@ -3449,6 +3470,11 @@ async function saveFizetes(){
   if(modKind === 'rendeles'){
     closeFizetes();
     await teljesitRendeles(datum, mod);
+    return;
+  }
+  if(modKind === 'jutalek'){
+    closeFizetes();
+    await jutalekFizetesMent(datum, mod);
     return;
   }
   const berletiMod = modKind === 'berleti';
@@ -4040,6 +4066,9 @@ function renderJutalek(){
     <div class="stat-card"><div class="stat-label">Kifizetve</div><div class="stat-value green">${fmt(totKifizetve)}</div></div>
     <div class="stat-card"><div class="stat-label">Bérletiből levonva</div><div class="stat-value">${fmt(totBerletbol)}</div></div>`;
 
+  // ---- A SZŰRT eredmény összegzése és kötegelt kifizetése ----
+  jutalekOsszegzo(list, bId, statF);
+
   const tbody=document.getElementById('jutalek-tbody');
   if(!list.length){tbody.innerHTML='<tr><td colspan="8"><div class="empty-state">Nincs vendégeladásból származó jutalék a szűrőkre</div></td></tr>';return;}
 
@@ -4066,6 +4095,19 @@ function renderJutalek(){
     </select>`;
   }
 
+  // A kifizetés dátuma és módja kis sorban a státusz alatt
+  function jFizInfo(tetelek){
+    const kifiz = tetelek.filter(e=>(e.jutalekStatusz||'fuggoben')!=='fuggoben' && e.fizetesDatum);
+    if(!kifiz.length) return '';
+    const datumok=[...new Set(kifiz.map(e=>e.fizetesDatum))];
+    const modok=[...new Set(kifiz.map(e=>e.fizetesMod).filter(m=>m))];
+    const dSzoveg = datumok.length===1 ? datumok[0] : datumok.length+' dátum';
+    const mSzoveg = modok.length===1 ? (JUT_MOD_SZOVEG[modok[0]]||modok[0]) : (modok.length?modok.length+' mód':'');
+    const ids = tetelek.map(e=>e.id).join(',');
+    return `<div style="font-size:10px;color:var(--text3);margin-top:3px;white-space:nowrap;">${dSzoveg}${mSzoveg?' · '+mSzoveg:''}
+      <span onclick="jutalekFizetesVisszavon('${ids}')" title="Visszaállítás függőbe" style="cursor:pointer;text-decoration:underline;margin-left:4px;">vissza</span></div>`;
+  }
+
   function jSor(e, csoportban, csIdx){
     const b=berlok.find(x=>x.id===e.berloId),p=products.find(x=>x.id===e.termekId);
     const bev=e.db*e.ar;
@@ -4078,7 +4120,7 @@ function renderJutalek(){
       <td class="td-mono">${e.db} db</td>
       <td class="td-mono">${fmt(bev)}</td>
       <td class="td-mono" style="font-weight:600;color:var(--accent2)">${fmt(e.jutalekOsszeg||0)}</td>
-      <td>${jStatSelect(statusz, 'setJutalekStatusz('+e.id+', this.value)')}</td>
+      <td>${jStatSelect(statusz, 'setJutalekStatusz('+e.id+', this.value)')}${jFizInfo([e])}</td>
       <td><button class="btn btn-sm btn-danger" onclick="delJutalek(${e.id})" title="Törlés">
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
       </button></td>
@@ -4103,12 +4145,94 @@ function renderJutalek(){
       <td class="td-mono" onclick="toggleJcs(${csIdx})" style="cursor:pointer;">${tetelek.reduce((s2,e)=>s2+e.db,0)} db</td>
       <td class="td-mono" onclick="toggleJcs(${csIdx})" style="cursor:pointer;">${fmt(tetelek.reduce((s2,e)=>s2+e.db*e.ar,0))}</td>
       <td class="td-mono" style="font-weight:700;color:var(--accent2)">${fmt(totJut)}</td>
-      <td>${jStatSelect(kozosStatusz, "setJutalekCsoportStatusz('"+ids+"', this.value)")}</td>
+      <td>${jStatSelect(kozosStatusz, "setJutalekCsoportStatusz('"+ids+"', this.value)")}${jFizInfo(tetelek)}</td>
       <td><button class="btn btn-sm btn-danger" onclick="delJutalekCsoport('${ids}')" title="Csoport törlése">
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
       </button></td>
     </tr>` + tetelek.map(e=>jSor(e, true, csIdx)).join('');
   }).join('');
+}
+
+function attrEsc(sz){
+  return String(sz).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
+    .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+const JUT_MOD_SZOVEG = { keszpenz:'Készpénz', utalas:'Utalás', berletbol:'Bérleti díjból levonva' };
+
+// A jutalék fül szűrt listájának összegzése. Itt látszik, hogy a kiválasztott
+// bérlőnek / státusznak mennyi az összege, és innen fizethető ki egyben.
+function jutalekOsszegzo(list, bId, statF){
+  const div = document.getElementById('jutalek-osszegzo');
+  if(!div) return;
+  if(!list.length){ div.innerHTML=''; return; }
+
+  const sJut = list.reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
+  const sBev = list.reduce((s,e)=>s+e.db*e.ar,0);
+  const fuggo = list.filter(e=>(e.jutalekStatusz||'fuggoben')==='fuggoben');
+  const fuggoOssz = fuggo.reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
+  const kifOssz = list.filter(e=>e.jutalekStatusz==='kifizetve').reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
+  const berOssz = list.filter(e=>e.jutalekStatusz==='berletbol').reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
+
+  const berloNev = bId ? ((berlok.find(x=>x.id===bId)||{}).nev || '?') : '';
+  const statSzoveg = statF ? (JUT_STAT_SZOVEG[statF] || statF) : 'minden státusz';
+  const fejSzoveg = (berloNev ? berloNev : 'Minden bérlő') + ' · ' + statSzoveg;
+
+  // Bérlőnkénti bontás a függőben lévőkre, ha nincs egy emberre szűrve
+  const perBerlo = {};
+  fuggo.forEach(e=>{ if(!perBerlo[e.berloId]) perBerlo[e.berloId]=[]; perBerlo[e.berloId].push(e); });
+  const berloIdk = Object.keys(perBerlo).sort((a,b)=>{
+    const na=(berlok.find(x=>x.id===Number(a))||{}).nev||'', nb=(berlok.find(x=>x.id===Number(b))||{}).nev||'';
+    return na.localeCompare(nb,'hu');
+  });
+
+  let foGomb = '';
+  if(fuggo.length){
+    const ids = fuggo.map(e=>e.id).join(',');
+    const cimke = (berloNev ? berloNev + ' – ' : '') + 'függőben lévő jutalékok';
+    foGomb = `<button class="btn btn-primary" onclick="openJutalekFizetes('${ids}','${attrEsc(cimke)}')" style="white-space:nowrap;">`+
+      (berloIdk.length>1 ? 'Mind a '+fuggo.length+' tétel kifizetése' : 'Kifizetés ('+fuggo.length+' tétel)')+'</button>';
+  }
+
+  // Bérlőnkénti sorok csak akkor, ha több emberről van szó
+  let bontas = '';
+  if(berloIdk.length > 1){
+    bontas = '<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px;display:flex;flex-direction:column;gap:6px;">' +
+      '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;">Függőben, bérlőnként</div>' +
+      berloIdk.map(idStr=>{
+        const tetelek = perBerlo[idStr];
+        const nev = (berlok.find(x=>x.id===Number(idStr))||{}).nev || '?';
+        const ossz = tetelek.reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
+        const ids = tetelek.map(e=>e.id).join(',');
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div style="font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${nev}
+            <span style="color:var(--text3);font-size:12px;">· ${tetelek.length} tétel</span></div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <strong style="font-size:14px;color:var(--accent2);white-space:nowrap;">${fmt(ossz)}</strong>
+            <button class="btn btn-sm btn-primary" onclick="openJutalekFizetes('${ids}','${attrEsc(nev+' – függőben lévő jutalékok')}')" style="white-space:nowrap;">Kifizetés</button>
+          </div>
+        </div>`;
+      }).join('') + '</div>';
+  }
+
+  div.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent2);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div style="min-width:0;">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Szűrt eredmény · ${attrEsc(fejSzoveg)}</div>
+        <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;">
+          <span style="font-size:20px;font-weight:700;color:var(--accent2);">${fmt(sJut)}</span>
+          <span style="font-size:12px;color:var(--text2);">${list.length} tétel · Eladás: <strong>${fmt(sBev)}</strong></span>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:12px;">
+          ${fuggoOssz?`<span style="background:#fee2e2;color:#991b1b;padding:3px 9px;border-radius:10px;font-weight:600;">⏳ Függőben: ${fmt(fuggoOssz)}</span>`:''}
+          ${kifOssz?`<span style="background:#e8f2ec;color:#2d5a3d;padding:3px 9px;border-radius:10px;font-weight:600;">✓ Kifizetve: ${fmt(kifOssz)}</span>`:''}
+          ${berOssz?`<span style="background:#eef2ff;color:#3730a3;padding:3px 9px;border-radius:10px;font-weight:600;">✓ Bérletiből: ${fmt(berOssz)}</span>`:''}
+        </div>
+      </div>
+      ${foGomb}
+    </div>
+    ${bontas}
+  </div>`;
 }
 
 function toggleJcs(csIdx){
@@ -4120,13 +4244,68 @@ function toggleJcs(csIdx){
   if(arrow) arrow.textContent = nyitva ? '▶' : '▼';
 }
 
+// ---- Jutalék kifizetése (egy tétel, csoport, vagy a teljes szűrt lista) ----
+let jutalekFizTargetIds = [];
+
+function openJutalekFizetes(idsCsv, cimke){
+  jutalekFizTargetIds = String(idsCsv).split(',').map(Number).filter(n=>n);
+  if(!jutalekFizTargetIds.length) return;
+  const tetelek = eladas.filter(e=>jutalekFizTargetIds.includes(e.id));
+  const ossz = tetelek.reduce((s,e)=>s+(e.jutalekOsszeg||0),0);
+  fizModOpciok(true);
+  document.getElementById('fizetesModal').dataset.mod = 'jutalek';
+  document.getElementById('fizetesTitle').textContent = 'Jutalék kifizetése';
+  document.getElementById('fizetesInfo').innerHTML =
+    (cimke ? '<div style="font-weight:600;color:var(--text);margin-bottom:6px;">'+cimke+'</div>' : '') +
+    tetelek.length+' tétel · Kifizetendő: <strong style="color:var(--accent2);font-size:15px;">'+fmt(ossz)+'</strong>' +
+    '<div style="color:var(--text3);margin-top:8px;font-size:12px;">A tételek a megadott dátummal és módon kifizetettre állnak. Ha a "Bérleti díjból levonva" módot választod, "Bérletiből levonva" státuszt kapnak.</div>';
+  document.getElementById('f-datum').value = fizModMaiDatum();
+  document.getElementById('fizetesModal').style.display='flex';
+}
+
+async function jutalekFizetesMent(datum, mod){
+  const ids = jutalekFizTargetIds.slice();
+  if(!ids.length) return;
+  const statusz = (mod === 'berletbol') ? 'berletbol' : 'kifizetve';
+  await apiMuvelet('jutalekFizetes', { ids, statusz, datum, mod }, function(){
+    ids.forEach(id=>{
+      const e = eladas.find(x=>x.id===id);
+      if(e){ e.jutalekStatusz = statusz; e.fizetesDatum = datum; e.fizetesMod = mod; }
+    });
+    renderJutalek();
+  });
+}
+
+// Visszaállítás függőbe: a kifizetés dátumát és módját is törli
+async function jutalekFizetesVisszavon(idsCsv){
+  const ids = String(idsCsv).split(',').map(Number).filter(n=>n);
+  if(!ids.length) return;
+  if(!confirm('Visszaállítod függőbe '+(ids.length>1?('mind a '+ids.length+' tételt'):'ezt a tételt')+'?\n\nA kifizetés dátuma és módja törlődik.')) return;
+  await apiMuvelet('jutalekFizetes', { ids, statusz:'fuggoben', datum:'', mod:'' }, function(){
+    ids.forEach(id=>{
+      const e = eladas.find(x=>x.id===id);
+      if(e){ e.jutalekStatusz = 'fuggoben'; e.fizetesDatum = ''; e.fizetesMod = ''; }
+    });
+    renderJutalek();
+  });
+}
+
 async function setJutalekCsoportStatusz(idsCsv, ujStatusz){
   if(!ujStatusz) return;
   const ids = idsCsv.split(',').map(Number);
-  await apiMuvelet('statuszValtas', { tipus:'jutalek', ids: ids, statusz: ujStatusz }, function(){
+  // Kifizetéshez dátum és mód is kell -> a kifizetés ablak nyílik
+  if(ujStatusz === 'kifizetve' || ujStatusz === 'berletbol'){
+    const elso = eladas.find(x=>x.id===ids[0]);
+    const nev = elso ? ((berlok.find(b=>b.id===elso.berloId)||{}).nev || '') : '';
+    openJutalekFizetes(ids.join(','), (nev?nev+' – ':'') + ids.length + ' tétel');
+    if(ujStatusz === 'berletbol'){ const s=document.getElementById('f-mod'); if(s) s.value='berletbol'; }
+    renderJutalek();
+    return;
+  }
+  await apiMuvelet('jutalekFizetes', { ids, statusz:'fuggoben', datum:'', mod:'' }, function(){
     ids.forEach(id=>{
       const e = eladas.find(x=>x.id===id);
-      if(e) e.jutalekStatusz = ujStatusz;
+      if(e){ e.jutalekStatusz = 'fuggoben'; e.fizetesDatum = ''; e.fizetesMod = ''; }
     });
   });
   renderJutalek();
@@ -4170,9 +4349,18 @@ async function delJutalek(id){
 async function setJutalekStatusz(eladasId, ujStatusz){
   const e=eladas.find(x=>x.id===eladasId);
   if(!e)return;
-  // Csak a jutalekStatusz mezőt írja a szerveren, ID alapján
-  await apiMuvelet('statuszValtas', { tipus:'jutalek', ids:[eladasId], statusz: ujStatusz }, function(){
-    e.jutalekStatusz=ujStatusz;
+  // Kifizetéshez dátum és mód is kell -> a kifizetés ablak nyílik
+  if(ujStatusz === 'kifizetve' || ujStatusz === 'berletbol'){
+    const nev = (berlok.find(b=>b.id===e.berloId)||{}).nev || '';
+    const p = products.find(x=>x.id===e.termekId);
+    openJutalekFizetes(String(eladasId), (nev?nev+' – ':'') + (p?p.nev:'1 tétel'));
+    if(ujStatusz === 'berletbol'){ const s=document.getElementById('f-mod'); if(s) s.value='berletbol'; }
+    renderJutalek();
+    return;
+  }
+  // Függőbe állítás: a kifizetés dátuma és módja is törlődik
+  await apiMuvelet('jutalekFizetes', { ids:[eladasId], statusz:'fuggoben', datum:'', mod:'' }, function(){
+    e.jutalekStatusz='fuggoben'; e.fizetesDatum=''; e.fizetesMod='';
   });
   renderJutalek();
 }
